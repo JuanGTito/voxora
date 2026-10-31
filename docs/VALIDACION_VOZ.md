@@ -13,3 +13,5 @@ Whisper produjo «No se medio presión» en lugar de «No se midió presión». 
 Se detectó un formato de micrófono compatible mediante Java Sound, sin abrirlo ni grabarlo. La prueba de voz humana debe realizarse con la acción explícita Grabar micrófono. También quedan pendientes el ensayo de tres minutos, la VM de 4 GB, Windows 10/11 en otro equipo y medición de memoria conjunta de sistema, aplicación y procesos nativos.
 
 La suite ordinaria se ejecuta sin modelos; la prueba de motores reales se habilita expresamente con `scripts/test-ai.ps1`. La prueba de interfaz verifica que aplicar la propuesta conserva el estado En proceso y guarda una versión, sin enviar ni aprobar automáticamente.
+
+Resultado local final: 44 pruebas aprobadas sin omisiones, distribuidas en 28 casos de negocio y seguridad, 11 de voz y validadores, cuatro de JavaFX y uno de integración real de modelos. Los tiempos de la última ejecución fueron 3,62 segundos para transcribir y 11,50 segundos para organizar la narración revisada.

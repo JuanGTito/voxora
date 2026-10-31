@@ -26,6 +26,7 @@ import org.junit.jupiter.api.io.TempDir;
 
   /* LFTY JGTM SCGC YARS DMFY */ @BeforeAll
   static void toolkit() throws Exception {
+    Files.createDirectories(Path.of("target/ui-evidence"));
     /* LFTY JGTM SCGC YARS DMFY */ Path cache = Path.of("target/ui-cache").toAbsolutePath();
     Files.createDirectories(cache);
     System.setProperty("javafx.cachedir", cache.toString());

@@ -51,6 +51,7 @@ build/
 *.gguf
 *.wav
 /documentacion/generados/
+/documentacion/*.zip
 /.idea/
 # Inventario privado de la demo original; se conserva solo como referencia local.
 /docs/DZONE_CONTEXTO_PARA_MIGRACION_JAVA.md
