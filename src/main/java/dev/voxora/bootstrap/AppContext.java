@@ -10,29 +10,35 @@ import java.io.IOException;
 import java.nio.channels.*;
 import java.nio.file.*;
 
-/* LFTY JGTM SCGC YARS DMFY */ public final class AppContext implements AutoCloseable {
-  /* LFTY JGTM SCGC YARS DMFY */ public final SqliteRepository repository;
-  /* LFTY JGTM SCGC YARS DMFY */ public final IdentityService identity;
-  /* LFTY JGTM SCGC YARS DMFY */ public final IncidentService incidents;
-  /* LFTY JGTM SCGC YARS DMFY */ public final BackupService backups;
-  /* LFTY JGTM SCGC YARS DMFY */ public final VoiceService voice;
-  /* LFTY JGTM SCGC YARS DMFY */ private final FileChannel channel;
-  /* LFTY JGTM SCGC YARS DMFY */ private final FileLock lock;
+/* LFTY · JGTM · SCGC · YARS · DMFY */
+public final class AppContext implements AutoCloseable {
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public final SqliteRepository repository;
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public final IdentityService identity;
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public final IncidentService incidents;
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public final BackupService backups;
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public final VoiceService voice;
+  private final FileChannel channel;
+  private final FileLock lock;
 
-  /* LFTY JGTM SCGC YARS DMFY */ public AppContext(
-      /* LFTY JGTM SCGC YARS DMFY */ Path root) throws IOException {
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public AppContext(Path root) throws IOException {
     Files.createDirectories(root);
     channel =
         FileChannel.open(
             root.resolve("instance.lock"), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
-    /* LFTY JGTM SCGC YARS DMFY */ FileLock acquired;
+    FileLock acquired;
     try {
       acquired = channel.tryLock();
-    } catch (/* LFTY JGTM SCGC YARS DMFY */ OverlappingFileLockException e) {
+    } catch (OverlappingFileLockException e) {
       channel.close();
       throw new IOException("Voxora ya está abierto con esta carpeta de datos.", e);
     }
-    /* LFTY JGTM SCGC YARS DMFY */ if (acquired == null) {
+    if (acquired == null) {
       channel.close();
       throw new IOException("Voxora ya está abierto con esta carpeta de datos.");
     }
@@ -45,7 +51,7 @@ import java.nio.file.*;
           new IncidentService(repository, identity, new LocalReportDocuments(repository.root()));
       backups = new BackupService(repository, identity);
       incidents.reconcile();
-      /* LFTY JGTM SCGC YARS DMFY */ AiRuntime runtime = new AiRuntime(repository.root());
+      AiRuntime runtime = new AiRuntime(repository.root());
       voice =
           new VoiceService(
               repository,
@@ -53,22 +59,24 @@ import java.nio.file.*;
               runtime,
               new WhisperEngine(runtime),
               new LlamaExtractor(runtime));
-    } catch (/* LFTY JGTM SCGC YARS DMFY */ Exception e) {
+    } catch (Exception e) {
       close();
       throw e;
     }
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ public static Path defaultRoot() {
-    /* LFTY JGTM SCGC YARS DMFY */ String local = System.getenv("LOCALAPPDATA");
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public static Path defaultRoot() {
+    String local = System.getenv("LOCALAPPDATA");
     return local == null
         ? Path.of(System.getProperty("user.home"), ".voxora")
         : Path.of(local, "Voxora");
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Override
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  @Override
   public void close() throws IOException {
-    /* LFTY JGTM SCGC YARS DMFY */ if (lock.isValid()) lock.release();
+    if (lock.isValid()) lock.release();
     channel.close();
   }
 }

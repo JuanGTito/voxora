@@ -5,19 +5,19 @@ import dev.voxora.ui.VoxoraApplication;
 import java.nio.file.*;
 import javafx.application.Application;
 
-/* LFTY JGTM SCGC YARS DMFY */ public final class Main {
-  /* LFTY JGTM SCGC YARS DMFY */ private Main() {}
+/* LFTY · JGTM · SCGC · YARS · DMFY */
+public final class Main {
+  private Main() {}
 
-  /* LFTY JGTM SCGC YARS DMFY */ public static void main(
-      /* LFTY JGTM SCGC YARS DMFY */ String[] args) throws Exception {
-    /* LFTY JGTM SCGC YARS DMFY */ Path root = AppContext.defaultRoot();
-    /* LFTY JGTM SCGC YARS DMFY */ for (/* LFTY JGTM SCGC YARS DMFY */ String argument : args)
-      /* LFTY JGTM SCGC YARS DMFY */ if (argument.startsWith("--data="))
-        root = Path.of(argument.substring(7));
-    /* LFTY JGTM SCGC YARS DMFY */ for (/* LFTY JGTM SCGC YARS DMFY */ String argument : args)
-      /* LFTY JGTM SCGC YARS DMFY */ if (argument.startsWith("--ai-home="))
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public static void main(String[] args) throws Exception {
+    Path root = AppContext.defaultRoot();
+    for (String argument : args)
+      if (argument.startsWith("--data=")) root = Path.of(argument.substring(7));
+    for (String argument : args)
+      if (argument.startsWith("--ai-home="))
         System.setProperty("voxora.ai.home", argument.substring(10));
-    /* LFTY JGTM SCGC YARS DMFY */ Path cache = root.toAbsolutePath().normalize().resolve("cache");
+    Path cache = root.toAbsolutePath().normalize().resolve("cache");
     Files.createDirectories(cache.resolve("javafx"));
     Files.createDirectories(cache.resolve("sqlite"));
     System.setProperty("javafx.cachedir", cache.resolve("javafx").toString());

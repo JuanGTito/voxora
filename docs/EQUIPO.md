@@ -8,6 +8,6 @@
 | Yuri Andrea Ramos Suca | YARS |
 | Dimas Mijael Flores Yerba | DMFY |
 
-Por petición del equipo, las clases, interfaces, registros, métodos, declaraciones de variables y parámetros, condicionales y bucles Java incluyen el comentario `/* LFTY JGTM SCGC YARS DMFY */`. Es una referencia colectiva; no identifica aportes individuales que no se hayan especificado. Los identificadores conservan nombres descriptivos para que el código pueda leerse y mantenerse.
+Las declaraciones explícitas `public` de Java (clases, interfaces, registros, constructores, métodos y campos) llevan únicamente `/* LFTY · JGTM · SCGC · YARS · DMFY */`. No se usa la palabra «Equipo» en esos comentarios ni se agrega una cabecera por archivo. No se marcan parámetros, variables internas ni instrucciones. Los nombres del código conservan su significado.
 
-`scripts/AnnotateTeam.java` utiliza el analizador sintáctico del JDK 21 para colocar los comentarios. Comprueba que el árbol sintáctico antes y después sea idéntico; no modifica reglas, nombres ni permisos. `scripts/annotate-team.ps1` aplica el formato de Java antes y después. No se alteran las migraciones SQL ya publicadas, las dependencias de terceros ni los modelos.
+Las iniciales son una referencia colectiva; no atribuyen aportes individuales. `scripts/AnnotateTeam.java` utiliza el analizador del JDK para localizar las declaraciones públicas y comprobar que el árbol sintáctico antes y después sea idéntico. Retira las marcas antiguas y `scripts/annotate-team.ps1` aplica el formato Java. No modifica nombres, reglas, permisos, dependencias ni migraciones SQL.

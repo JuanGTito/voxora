@@ -18,19 +18,19 @@ import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 
-/* LFTY JGTM SCGC YARS DMFY */ class WorkflowTest {
-  /* LFTY JGTM SCGC YARS DMFY */ @TempDir Path root;
-  /* LFTY JGTM SCGC YARS DMFY */ SqliteRepository repository;
-  /* LFTY JGTM SCGC YARS DMFY */ IdentityService identity;
-  /* LFTY JGTM SCGC YARS DMFY */ IncidentService incidents;
-  /* LFTY JGTM SCGC YARS DMFY */ LocalReportDocuments documents;
-  /* LFTY JGTM SCGC YARS DMFY */ String admin, supervisor, technician, other;
-  /* LFTY JGTM SCGC YARS DMFY */ long techId, otherId;
-  /* LFTY JGTM SCGC YARS DMFY */ static final String PASSWORD = "Prueba-local-2026!";
-  /* LFTY JGTM SCGC YARS DMFY */ static final String REPORT =
+class WorkflowTest {
+  @TempDir Path root;
+  SqliteRepository repository;
+  IdentityService identity;
+  IncidentService incidents;
+  LocalReportDocuments documents;
+  String admin, supervisor, technician, other;
+  long techId, otherId;
+  static final String PASSWORD = "Prueba-local-2026!";
+  static final String REPORT =
       "Se cambió la junta de goma. No se observaron fugas. No se midió presión.";
 
-  /* LFTY JGTM SCGC YARS DMFY */ @BeforeEach
+  @BeforeEach
   void initialize() {
     repository = new SqliteRepository(root);
     identity = new IdentityService(repository);
@@ -51,7 +51,7 @@ import org.junit.jupiter.api.io.TempDir;
     otherId = identity.current(other).id();
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ long pending() {
+  long pending() {
     return incidents.create(
         supervisor,
         "Reparar fuga",
@@ -62,67 +62,59 @@ import org.junit.jupiter.api.io.TempDir;
         Specialty.MECANICA);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ long started() {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = pending();
+  long started() {
+    long id = pending();
     incidents.assign(supervisor, id, techId);
     incidents.start(technician, id);
     return id;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ long submitted() {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = started();
-    /* LFTY JGTM SCGC YARS DMFY */ Version v = incidents.preview(technician, id, REPORT);
+  long submitted() {
+    long id = started();
+    Version v = incidents.preview(technician, id, REPORT);
     incidents.submit(technician, id, v.id());
     return id;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void manualCircuitPersistsAndExportsExactApprovedVersion() throws Exception {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = started();
-    /* LFTY JGTM SCGC YARS DMFY */ Version preview = incidents.preview(technician, id, REPORT);
+    long id = started();
+    Version preview = incidents.preview(technician, id, REPORT);
     assertEquals(Status.EN_PROCESO, incidents.read(technician, id).status());
     incidents.submit(technician, id, preview.id());
     incidents.returnReport(supervisor, id, "Agrega la prueba final.");
     assertEquals(1, incidents.versions(technician, id).size());
-    /* LFTY JGTM SCGC YARS DMFY */ String corrected =
-        REPORT + " Se realizó una inspección visual final.";
-    /* LFTY JGTM SCGC YARS DMFY */ Version revised = incidents.preview(technician, id, corrected);
+    String corrected = REPORT + " Se realizó una inspección visual final.";
+    Version revised = incidents.preview(technician, id, corrected);
     incidents.submit(technician, id, revised.id());
-    /* LFTY JGTM SCGC YARS DMFY */ Path pdf = incidents.approve(supervisor, id);
+    Path pdf = incidents.approve(supervisor, id);
     assertTrue(Files.isRegularFile(pdf));
     assertEquals(Status.COMPLETADO, incidents.read(technician, id).status());
-    try (
-    /* LFTY JGTM SCGC YARS DMFY */ var doc = Loader.loadPDF(pdf.toFile())) {
-      /* LFTY JGTM SCGC YARS DMFY */ String text =
-          new PDFTextStripper().getText(doc).replaceAll("\\s+", " ");
+    try (var doc = Loader.loadPDF(pdf.toFile())) {
+      String text = new PDFTextStripper().getText(doc).replaceAll("\\s+", " ");
       assertTrue(text.contains("No se midió presión"), text);
       assertTrue(text.contains("inspección visual final"), text);
       assertTrue(text.contains("supervisor"), text);
     }
-    /* LFTY JGTM SCGC YARS DMFY */ Path docx = incidents.export(technician, id, true);
-    try (
-    /* LFTY JGTM SCGC YARS DMFY */ var in = Files.newInputStream(docx);
-        /* LFTY JGTM SCGC YARS DMFY */ var doc = new XWPFDocument(in)) {
-      assertTrue(
-          doc.getParagraphs().stream()
-              .anyMatch(/* LFTY JGTM SCGC YARS DMFY */ p -> p.getText().equals(corrected)));
+    Path docx = incidents.export(technician, id, true);
+    try (var in = Files.newInputStream(docx);
+        var doc = new XWPFDocument(in)) {
+      assertTrue(doc.getParagraphs().stream().anyMatch(p -> p.getText().equals(corrected)));
     }
-    /* LFTY JGTM SCGC YARS DMFY */ var reopened = new SqliteRepository(root);
-    /* LFTY JGTM SCGC YARS DMFY */ var newIdentity = new IdentityService(reopened);
-    /* LFTY JGTM SCGC YARS DMFY */ String session =
-        newIdentity.login("tecnico", PASSWORD.toCharArray());
+    var reopened = new SqliteRepository(root);
+    var newIdentity = new IdentityService(reopened);
+    String session = newIdentity.login("tecnico", PASSWORD.toCharArray());
     assertEquals(
         Status.COMPLETADO,
         new IncidentService(reopened, newIdentity, documents).read(session, id).status());
     assertEquals(2, incidents.versions(technician, id).size());
     assertTrue(
-        incidents.events(supervisor, id).stream()
-            .anyMatch(/* LFTY JGTM SCGC YARS DMFY */ e -> e.action().equals("DEVUELTO")));
+        incidents.events(supervisor, id).stream().anyMatch(e -> e.action().equals("DEVUELTO")));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void techniciansCannotReadOrModifyForeignWork() {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = started();
+    long id = started();
     assertTrue(incidents.list(other).isEmpty());
     assertThrows(RuleViolation.class, () -> incidents.read(other, id));
     assertThrows(RuleViolation.class, () -> incidents.save(other, id, REPORT));
@@ -134,9 +126,9 @@ import org.junit.jupiter.api.io.TempDir;
         () -> incidents.create(technician, "x", "y", "z", "d", Priority.MEDIA, Specialty.GENERAL));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void assignmentRequiresMatchingSpecialtyAndValidState() {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = pending();
+    long id = pending();
     assertThrows(RuleViolation.class, () -> incidents.assign(supervisor, id, otherId));
     incidents.assign(supervisor, id, techId);
     incidents.start(technician, id);
@@ -144,81 +136,75 @@ import org.junit.jupiter.api.io.TempDir;
     assertThrows(RuleViolation.class, () -> incidents.start(technician, id));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void previewCancellationOnlySavesDraft() {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = started();
-    /* LFTY JGTM SCGC YARS DMFY */ Version v = incidents.preview(technician, id, REPORT);
+    long id = started();
+    Version v = incidents.preview(technician, id, REPORT);
     assertEquals(Status.EN_PROCESO, incidents.read(technician, id).status());
     assertNull(incidents.read(technician, id).submittedVersion());
     assertEquals(REPORT, incidents.versions(technician, id).getFirst().content());
     assertEquals("BORRADOR", v.kind());
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void stalePreviewCannotBeSubmitted() {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = started();
-    /* LFTY JGTM SCGC YARS DMFY */ Version old = incidents.preview(technician, id, REPORT);
+    long id = started();
+    Version old = incidents.preview(technician, id, REPORT);
     incidents.save(technician, id, REPORT + " Corrección.");
     assertThrows(RuleViolation.class, () -> incidents.submit(technician, id, old.id()));
     assertEquals(Status.EN_PROCESO, incidents.read(technician, id).status());
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void unchangedAutosaveDoesNotCreateVersions() {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = started();
-    /* LFTY JGTM SCGC YARS DMFY */ Version first = incidents.save(technician, id, REPORT);
+    long id = started();
+    Version first = incidents.save(technician, id, REPORT);
     assertEquals(first.id(), incidents.save(technician, id, REPORT).id());
     assertEquals(1, incidents.versions(technician, id).size());
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void incompleteDraftIsRecoverableButNotSubmittable() {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = started();
+    long id = started();
     incidents.save(technician, id, "Falta probar");
     assertEquals("Falta probar", incidents.read(technician, id).draft());
     assertThrows(RuleViolation.class, () -> incidents.preview(technician, id, "Falta probar"));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void duplicateSubmissionAndEditingSubmittedVersionAreRejected() {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = submitted();
-    /* LFTY JGTM SCGC YARS DMFY */ Version v = incidents.versions(technician, id).getFirst();
+    long id = submitted();
+    Version v = incidents.versions(technician, id).getFirst();
     assertEquals("ENVIADO", v.kind());
     assertThrows(RuleViolation.class, () -> incidents.submit(technician, id, v.id()));
     assertThrows(RuleViolation.class, () -> incidents.save(technician, id, "otro"));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void returnRequiresReasonAndSupervisor() {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = submitted();
+    long id = submitted();
     assertThrows(RuleViolation.class, () -> incidents.returnReport(supervisor, id, " "));
     assertThrows(RuleViolation.class, () -> incidents.returnReport(technician, id, "Cambiar"));
     assertThrows(RuleViolation.class, () -> incidents.approve(technician, id));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void pdfFailureRollsBackApprovalAndAudit() {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = submitted();
-    /* LFTY JGTM SCGC YARS DMFY */ ReportDocuments failing =
-        new ReportDocuments() /* LFTY JGTM SCGC YARS DMFY */ {
-          /* LFTY JGTM SCGC YARS DMFY */ public Path pdf(
-              /* LFTY JGTM SCGC YARS DMFY */ Incident i, /* LFTY JGTM SCGC YARS DMFY */
-              Version v, /* LFTY JGTM SCGC YARS DMFY */
-              String u, /* LFTY JGTM SCGC YARS DMFY */
-              Instant at) {
+    long id = submitted();
+    ReportDocuments failing =
+        new ReportDocuments() {
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public Path pdf(Incident i, Version v, String u, Instant at) {
             throw new IllegalStateException("Disco lleno");
           }
 
-          /* LFTY JGTM SCGC YARS DMFY */ public Path docx(
-              /* LFTY JGTM SCGC YARS DMFY */ Incident i, /* LFTY JGTM SCGC YARS DMFY */
-              Version v, /* LFTY JGTM SCGC YARS DMFY */
-              String u, /* LFTY JGTM SCGC YARS DMFY */
-              Instant at) {
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public Path docx(Incident i, Version v, String u, Instant at) {
             throw new UnsupportedOperationException();
           }
 
-          /* LFTY JGTM SCGC YARS DMFY */ public Path pdfPath(
-              /* LFTY JGTM SCGC YARS DMFY */ Incident i, /* LFTY JGTM SCGC YARS DMFY */ Version v) {
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public Path pdfPath(Incident i, Version v) {
             return documents.pdfPath(i, v);
           }
         };
@@ -227,52 +213,48 @@ import org.junit.jupiter.api.io.TempDir;
         () -> new IncidentService(repository, identity, failing).approve(supervisor, id));
     assertEquals(Status.EN_REVISION, incidents.read(supervisor, id).status());
     assertFalse(
-        incidents.events(supervisor, id).stream()
-            .anyMatch(/* LFTY JGTM SCGC YARS DMFY */ e -> e.action().equals("APROBADO")));
+        incidents.events(supervisor, id).stream().anyMatch(e -> e.action().equals("APROBADO")));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void missingConfirmedPdfCanBeRegenerated() throws Exception {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = submitted();
-    /* LFTY JGTM SCGC YARS DMFY */ Path pdf = incidents.approve(supervisor, id);
+    long id = submitted();
+    Path pdf = incidents.approve(supervisor, id);
     Files.delete(pdf);
     incidents.reconcile();
     assertTrue(Files.size(pdf) > 1000);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void forgedRevokedAndForeignRepositorySessionsAreRejected() {
     assertThrows(RuleViolation.class, () -> incidents.list("inventado"));
     identity.logout(technician, false);
     assertThrows(RuleViolation.class, () -> incidents.list(technician));
-    /* LFTY JGTM SCGC YARS DMFY */ IdentityService isolated = new IdentityService(repository);
+    IdentityService isolated = new IdentityService(repository);
     assertThrows(RuleViolation.class, () -> isolated.current(admin));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void setupIsOneTimeAndPasswordsAreNeverStoredAsPlaintext() throws Exception {
     assertThrows(RuleViolation.class, () -> identity.setup("intruso", PASSWORD.toCharArray()));
     assertThrows(RuleViolation.class, () -> identity.login("soporte", "incorrecta".toCharArray()));
-    /* LFTY JGTM SCGC YARS DMFY */ String hash =
-        repository.transact(
-            /* LFTY JGTM SCGC YARS DMFY */ tx -> tx.account("soporte").orElseThrow().hash());
+    String hash = repository.transact(tx -> tx.account("soporte").orElseThrow().hash());
     assertTrue(hash.startsWith("$argon2id$"));
     assertFalse(hash.contains(PASSWORD));
-    /* LFTY JGTM SCGC YARS DMFY */ Passwords passwords = new Passwords();
-    /* LFTY JGTM SCGC YARS DMFY */ String a = passwords.hash(PASSWORD.toCharArray()),
-        b = passwords.hash(PASSWORD.toCharArray());
+    Passwords passwords = new Passwords();
+    String a = passwords.hash(PASSWORD.toCharArray()), b = passwords.hash(PASSWORD.toCharArray());
     assertNotEquals(a, b);
     assertTrue(passwords.verify(PASSWORD.toCharArray(), a));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void usersRequireSupportAndCannotSelfElevate() {
     assertThrows(
         RuleViolation.class,
         () ->
             identity.createUser(
                 technician, "elevado", PASSWORD.toCharArray(), Role.SUPERADMIN, Specialty.GENERAL));
-    /* LFTY JGTM SCGC YARS DMFY */ long id = identity.current(admin).id();
+    long id = identity.current(admin).id();
     assertThrows(
         RuleViolation.class,
         () -> identity.updateUser(admin, id, Role.TECHNICIAN, Specialty.GENERAL, true));
@@ -281,7 +263,7 @@ import org.junit.jupiter.api.io.TempDir;
         () -> identity.updateUser(admin, id, Role.SUPERADMIN, Specialty.GENERAL, false));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void inactiveAccountsAndChangedPasswordsInvalidateExistingSessions() {
     identity.updateUser(admin, otherId, Role.TECHNICIAN, Specialty.ELECTRICA, false);
     assertThrows(RuleViolation.class, () -> identity.current(other));
@@ -291,7 +273,7 @@ import org.junit.jupiter.api.io.TempDir;
     assertDoesNotThrow(() -> identity.login("tecnico", "Otra-clave-2026!".toCharArray()));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void technicianWithOpenWorkCannotBeDisabled() {
     started();
     assertThrows(
@@ -299,11 +281,11 @@ import org.junit.jupiter.api.io.TempDir;
         () -> identity.updateUser(admin, techId, Role.TECHNICIAN, Specialty.MECANICA, false));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void inactivityIsMeasuredOnlyFromHumanActivity() {
-    /* LFTY JGTM SCGC YARS DMFY */ MutableClock clock = new MutableClock();
-    /* LFTY JGTM SCGC YARS DMFY */ IdentityService timed = new IdentityService(repository, clock);
-    /* LFTY JGTM SCGC YARS DMFY */ String session = timed.login("tecnico", PASSWORD.toCharArray());
+    MutableClock clock = new MutableClock();
+    IdentityService timed = new IdentityService(repository, clock);
+    String session = timed.login("tecnico", PASSWORD.toCharArray());
     clock.advance(Duration.ofMinutes(14));
     timed.current(session);
     assertEquals(14, timed.idle(session).toMinutes());
@@ -314,7 +296,7 @@ import org.junit.jupiter.api.io.TempDir;
     assertThrows(RuleViolation.class, () -> timed.current(session));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void timeoutConfigurationRequiresSupportAndBounds() {
     assertThrows(RuleViolation.class, () -> identity.inactivityMinutes(technician, 5));
     assertThrows(RuleViolation.class, () -> identity.inactivityMinutes(admin, 31));
@@ -322,29 +304,27 @@ import org.junit.jupiter.api.io.TempDir;
     assertEquals(5, identity.inactivityMinutes(supervisor));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void backupRestoresDatabaseAndDocumentsAndRevokesSessions() throws Exception {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = submitted();
-    /* LFTY JGTM SCGC YARS DMFY */ Path pdf = incidents.approve(supervisor, id);
-    /* LFTY JGTM SCGC YARS DMFY */ Path zip = root.resolve("copy.zip");
-    /* LFTY JGTM SCGC YARS DMFY */ BackupService backups = new BackupService(repository, identity);
+    long id = submitted();
+    Path pdf = incidents.approve(supervisor, id);
+    Path zip = root.resolve("copy.zip");
+    BackupService backups = new BackupService(repository, identity);
     backups.backup(admin, zip);
     pending();
     Files.delete(pdf);
     backups.restore(admin, zip);
     assertThrows(RuleViolation.class, () -> identity.current(admin));
-    /* LFTY JGTM SCGC YARS DMFY */ String restored =
-        identity.login("soporte", PASSWORD.toCharArray());
+    String restored = identity.login("soporte", PASSWORD.toCharArray());
     assertEquals(1, incidents.list(restored).size());
     assertTrue(Files.isRegularFile(pdf));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void maliciousZipCannotEscapeOrChangeLiveDatabase() throws Exception {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = started();
-    /* LFTY JGTM SCGC YARS DMFY */ Path zip = root.resolve("bad.zip");
-    try (
-    /* LFTY JGTM SCGC YARS DMFY */ var out = new ZipOutputStream(Files.newOutputStream(zip))) {
+    long id = started();
+    Path zip = root.resolve("bad.zip");
+    try (var out = new ZipOutputStream(Files.newOutputStream(zip))) {
       out.putNextEntry(new ZipEntry("../outside.txt"));
       out.write("bad".getBytes());
       out.closeEntry();
@@ -355,14 +335,14 @@ import org.junit.jupiter.api.io.TempDir;
     assertFalse(Files.exists(root.getParent().resolve("outside.txt")));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void backupsCannotBeReadOrRestoredByTechnician() {
-    /* LFTY JGTM SCGC YARS DMFY */ var backups = new BackupService(repository, identity);
+    var backups = new BackupService(repository, identity);
     assertThrows(RuleViolation.class, () -> backups.backup(technician, root.resolve("copy.zip")));
     assertThrows(RuleViolation.class, () -> backups.restore(technician, root.resolve("copy.zip")));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void globalAuditIsRestrictedAndCatalogsAreValidated() {
     assertThrows(RuleViolation.class, () -> incidents.events(technician, null));
     assertThrows(
@@ -375,13 +355,13 @@ import org.junit.jupiter.api.io.TempDir;
         () -> incidents.create(supervisor, "t", "eq", "loc", "desc", null, Specialty.GENERAL));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void sqliteTransactionRollsBackChangesAndEventsTogether() {
     assertThrows(
         IllegalStateException.class,
         () ->
             repository.transact(
-                /* LFTY JGTM SCGC YARS DMFY */ tx -> {
+                tx -> {
                   tx.addIncident(
                       "x",
                       "eq",
@@ -396,11 +376,11 @@ import org.junit.jupiter.api.io.TempDir;
     assertTrue(incidents.list(admin).isEmpty());
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void selfApprovalIsRejectedEvenAfterRoleChangeOutsideUi() {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = submitted();
+    long id = submitted();
     repository.transact(
-        /* LFTY JGTM SCGC YARS DMFY */ tx -> {
+        tx -> {
           tx.updateUser(techId, Role.SUPERVISOR, Specialty.MECANICA, true);
           return null;
         });
@@ -408,23 +388,22 @@ import org.junit.jupiter.api.io.TempDir;
     assertEquals(Status.EN_REVISION, incidents.read(supervisor, id).status());
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void removedIncidentPermissionIsEnforcedInService() {
-    try (
-    /* LFTY JGTM SCGC YARS DMFY */ var c =
+    try (var c =
             java.sql.DriverManager.getConnection("jdbc:sqlite:" + root.resolve("data/voxora.db"));
-        /* LFTY JGTM SCGC YARS DMFY */ var s = c.createStatement()) {
+        var s = c.createStatement()) {
       s.executeUpdate("DELETE FROM role_permissions WHERE role='TECHNICIAN'");
-    } catch (/* LFTY JGTM SCGC YARS DMFY */ java.sql.SQLException e) {
+    } catch (java.sql.SQLException e) {
       throw new RuntimeException(e);
     }
     assertThrows(RuleViolation.class, () -> incidents.list(technician));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void interruptedRestoreRecoversPreviousDatabaseOnNextStart() throws Exception {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = started();
-    /* LFTY JGTM SCGC YARS DMFY */ Path safety = root.resolve("restore-recovery");
+    long id = started();
+    Path safety = root.resolve("restore-recovery");
     Files.createDirectories(safety.resolve("data"));
     repository.snapshot(safety.resolve("data/voxora.db"));
     Files.createDirectories(safety.resolve("reports"));
@@ -436,21 +415,18 @@ import org.junit.jupiter.api.io.TempDir;
     assertFalse(Files.exists(safety));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void corruptedBackupIsRejectedBeforeLiveDataChanges() throws Exception {
-    /* LFTY JGTM SCGC YARS DMFY */ long id = started();
-    /* LFTY JGTM SCGC YARS DMFY */ BackupService backups = new BackupService(repository, identity);
-    /* LFTY JGTM SCGC YARS DMFY */ Path source = root.resolve("source.zip"),
-        bad = root.resolve("corrupt.zip");
+    long id = started();
+    BackupService backups = new BackupService(repository, identity);
+    Path source = root.resolve("source.zip"), bad = root.resolve("corrupt.zip");
     backups.backup(admin, source);
-    try (
-    /* LFTY JGTM SCGC YARS DMFY */ var input = new ZipInputStream(Files.newInputStream(source));
-        /* LFTY JGTM SCGC YARS DMFY */ var output =
-            new ZipOutputStream(Files.newOutputStream(bad))) {
-      /* LFTY JGTM SCGC YARS DMFY */ ZipEntry item;
-      /* LFTY JGTM SCGC YARS DMFY */ while ((item = input.getNextEntry()) != null) {
+    try (var input = new ZipInputStream(Files.newInputStream(source));
+        var output = new ZipOutputStream(Files.newOutputStream(bad))) {
+      ZipEntry item;
+      while ((item = input.getNextEntry()) != null) {
         output.putNextEntry(new ZipEntry(item.getName()));
-        /* LFTY JGTM SCGC YARS DMFY */ if (item.getName().equals("data/voxora.db")) {
+        if (item.getName().equals("data/voxora.db")) {
           output.write("corrupt database".getBytes());
         } else input.transferTo(output);
         output.closeEntry();
@@ -460,12 +436,11 @@ import org.junit.jupiter.api.io.TempDir;
     assertEquals(Status.EN_PROCESO, incidents.read(technician, id).status());
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void migrationChecksumMismatchPreventsOpeningDifferentSchema() throws Exception {
-    try (
-    /* LFTY JGTM SCGC YARS DMFY */ var c =
+    try (var c =
             java.sql.DriverManager.getConnection("jdbc:sqlite:" + root.resolve("data/voxora.db"));
-        /* LFTY JGTM SCGC YARS DMFY */ var s = c.createStatement()) {
+        var s = c.createStatement()) {
       s.executeUpdate("UPDATE schema_migrations SET checksum='changed'");
     }
     assertThrows(IllegalStateException.class, () -> new SqliteRepository(root));
@@ -473,23 +448,25 @@ import org.junit.jupiter.api.io.TempDir;
         RuleViolation.class, () -> SqliteRepository.validate(root.resolve("data/voxora.db")));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ static class MutableClock extends Clock {
-    /* LFTY JGTM SCGC YARS DMFY */ Instant now = Instant.parse("2026-10-31T00:00:00Z");
+  static class MutableClock extends Clock {
+    Instant now = Instant.parse("2026-10-31T00:00:00Z");
 
-    /* LFTY JGTM SCGC YARS DMFY */ void advance(/* LFTY JGTM SCGC YARS DMFY */ Duration duration) {
+    void advance(Duration duration) {
       now = now.plus(duration);
     }
 
-    /* LFTY JGTM SCGC YARS DMFY */ public ZoneId getZone() {
+    /* LFTY · JGTM · SCGC · YARS · DMFY */
+    public ZoneId getZone() {
       return ZoneOffset.UTC;
     }
 
-    /* LFTY JGTM SCGC YARS DMFY */ public Clock withZone(
-        /* LFTY JGTM SCGC YARS DMFY */ ZoneId zone) {
+    /* LFTY · JGTM · SCGC · YARS · DMFY */
+    public Clock withZone(ZoneId zone) {
       return this;
     }
 
-    /* LFTY JGTM SCGC YARS DMFY */ public Instant instant() {
+    /* LFTY · JGTM · SCGC · YARS · DMFY */
+    public Instant instant() {
       return now;
     }
   }

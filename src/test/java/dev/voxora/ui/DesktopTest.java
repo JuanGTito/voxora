@@ -17,20 +17,20 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 
 /** In-process JavaFX tests with ephemeral accounts, not automation of user login dialogs. */
-/* LFTY JGTM SCGC YARS DMFY */ class DesktopTest {
-  /* LFTY JGTM SCGC YARS DMFY */ @TempDir Path root;
-  /* LFTY JGTM SCGC YARS DMFY */ AppContext context;
-  /* LFTY JGTM SCGC YARS DMFY */ VoxoraApplication application;
-  /* LFTY JGTM SCGC YARS DMFY */ Stage stage;
-  /* LFTY JGTM SCGC YARS DMFY */ static final String PASSWORD = "Temporal-ui-2026!";
+class DesktopTest {
+  @TempDir Path root;
+  AppContext context;
+  VoxoraApplication application;
+  Stage stage;
+  static final String PASSWORD = "Temporal-ui-2026!";
 
-  /* LFTY JGTM SCGC YARS DMFY */ @BeforeAll
+  @BeforeAll
   static void toolkit() throws Exception {
     Files.createDirectories(Path.of("target/ui-evidence"));
-    /* LFTY JGTM SCGC YARS DMFY */ Path cache = Path.of("target/ui-cache").toAbsolutePath();
+    Path cache = Path.of("target/ui-cache").toAbsolutePath();
     Files.createDirectories(cache);
     System.setProperty("javafx.cachedir", cache.toString());
-    /* LFTY JGTM SCGC YARS DMFY */ CountDownLatch started = new CountDownLatch(1);
+    CountDownLatch started = new CountDownLatch(1);
     Platform.startup(
         () -> {
           Platform.setImplicitExit(false);
@@ -39,7 +39,7 @@ import org.junit.jupiter.api.io.TempDir;
     assertTrue(started.await(20, TimeUnit.SECONDS));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @BeforeEach
+  @BeforeEach
   void open() throws Exception {
     context = new AppContext(root);
     fx(
@@ -51,26 +51,23 @@ import org.junit.jupiter.api.io.TempDir;
         });
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @AfterEach
+  @AfterEach
   void close() throws Exception {
     fx(
         () -> {
-          /* LFTY JGTM SCGC YARS DMFY */ for (
-          /* LFTY JGTM SCGC YARS DMFY */ Window window : List.copyOf(Window.getWindows()))
-            window.hide();
+          for (Window window : List.copyOf(Window.getWindows())) window.hide();
           application.stop();
           return null;
         });
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void firstRunHasSetupWithoutPredefinedCredentials() throws Exception {
     fx(
         () -> {
           assertTrue(
               buttons(stage.getScene().getRoot()).stream()
-                  .anyMatch(
-                      /* LFTY JGTM SCGC YARS DMFY */ b -> b.getText().equals("Crear instalación")));
+                  .anyMatch(b -> b.getText().equals("Crear instalación")));
           assertEquals(2, stage.getScene().getRoot().lookupAll(".password-field").size());
           snapshot("first-run");
           return null;
@@ -78,19 +75,64 @@ import org.junit.jupiter.api.io.TempDir;
     assertTrue(context.identity.needsSetup());
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void loginDashboardNavigationAndCreateDialogRender() throws Exception {
     setupUi();
+    String admin = context.identity.login("soporte", PASSWORD.toCharArray());
+    context.identity.createUser(
+        admin, "tecnico", PASSWORD.toCharArray(), Role.TECHNICIAN, Specialty.MECANICA);
+    String tech = context.identity.login("tecnico", PASSWORD.toCharArray());
+    long assigned =
+        context.incidents.create(
+            admin,
+            "Revisar vibración de la bomba principal",
+            "BOM-02",
+            "Sala de bombas",
+            "Inspeccionar vibración y anclajes.",
+            Priority.ALTA,
+            Specialty.MECANICA);
+    context.incidents.assign(admin, assigned, context.identity.current(tech).id());
+    context.incidents.create(
+        admin,
+        "Comprobar el filtro de retorno",
+        "FIL-01",
+        "Taller",
+        "Revisar condición del filtro.",
+        Priority.BAJA,
+        Specialty.GENERAL);
     fx(
         () -> {
+          findButton("Inicio").fire();
           snapshot("dashboard");
           findButton("Incidencias").fire();
           layout();
           assertEquals(1, stage.getScene().getRoot().lookupAll(".table-view").size());
           snapshot("incidents");
+          ComboBox<Priority> priority =
+              (ComboBox<Priority>) stage.getScene().getRoot().lookup("#priority-filter");
+          priority.setValue(Priority.ALTA);
+          assertEquals(
+              1,
+              ((TableView<?>) stage.getScene().getRoot().lookup("#incident-table"))
+                  .getItems()
+                  .size());
+          findButton("Limpiar").fire();
+          assertEquals(
+              2,
+              ((TableView<?>) stage.getScene().getRoot().lookup("#incident-table"))
+                  .getItems()
+                  .size());
+          findButton("Mi jornada").fire();
+          snapshot("journey");
+          assertEquals(1, stage.getScene().getRoot().lookupAll(".work-card").size());
+          findButton("Indicadores").fire();
+          snapshot("indicators");
+          findButton("Revisiones").fire();
+          snapshot("reviews");
           findButton("Tablero").fire();
           layout();
           assertEquals(5, stage.getScene().getRoot().lookupAll(".kanban-column").size());
+          snapshot("kanban");
           findButton("Usuarios").fire();
           findButton("Configuración").fire();
           snapshot("settings");
@@ -102,27 +144,22 @@ import org.junit.jupiter.api.io.TempDir;
           findButton("Incidencias").fire();
           Platform.runLater(
               () -> {
-                /* LFTY JGTM SCGC YARS DMFY */ for (
-                /* LFTY JGTM SCGC YARS DMFY */ Window w :
-                    List.copyOf(Window.getWindows())) /* LFTY JGTM SCGC YARS DMFY */
-                  if (w != stage) w.hide();
+                for (Window w : List.copyOf(Window.getWindows())) if (w != stage) w.hide();
               });
           findButton("Nueva incidencia").fire();
           return null;
         });
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void technicianEditorPreservesDraftWhenClosed() throws Exception {
     setupUi();
-    /* LFTY JGTM SCGC YARS DMFY */ String admin =
-        context.identity.login("soporte", PASSWORD.toCharArray());
+    String admin = context.identity.login("soporte", PASSWORD.toCharArray());
     context.identity.createUser(
         admin, "tecnico", PASSWORD.toCharArray(), Role.TECHNICIAN, Specialty.MECANICA);
-    /* LFTY JGTM SCGC YARS DMFY */ String tech =
-        context.identity.login("tecnico", PASSWORD.toCharArray());
-    /* LFTY JGTM SCGC YARS DMFY */ long techId = context.identity.current(tech).id();
-    /* LFTY JGTM SCGC YARS DMFY */ long id =
+    String tech = context.identity.login("tecnico", PASSWORD.toCharArray());
+    long techId = context.identity.current(tech).id();
+    long id =
         context.incidents.create(
             admin,
             "Inspeccionar bomba",
@@ -136,12 +173,10 @@ import org.junit.jupiter.api.io.TempDir;
     fx(
         () -> {
           findButton("Cerrar sesión").fire();
-          /* LFTY JGTM SCGC YARS DMFY */ TextField name =
+          TextField name =
               (TextField)
                   stage.getScene().getRoot().lookupAll(".text-field").stream()
-                      .filter(
-                          /* LFTY JGTM SCGC YARS DMFY */ n ->
-                              n instanceof TextField && !(n instanceof PasswordField))
+                      .filter(n -> n instanceof TextField && !(n instanceof PasswordField))
                       .findFirst()
                       .orElseThrow();
           name.setText("tecnico");
@@ -150,7 +185,7 @@ import org.junit.jupiter.api.io.TempDir;
           return null;
         });
     awaitButton("Incidencias");
-    /* LFTY JGTM SCGC YARS DMFY */ java.util.concurrent.atomic.AtomicReference<Throwable> failure =
+    java.util.concurrent.atomic.AtomicReference<Throwable> failure =
         new java.util.concurrent.atomic.AtomicReference<>();
     fx(
         () -> {
@@ -162,35 +197,27 @@ import org.junit.jupiter.api.io.TempDir;
           Platform.runLater(
               () -> {
                 try {
-                  /* LFTY JGTM SCGC YARS DMFY */ Window window =
+                  Window window =
                       Window.getWindows().stream()
-                          .filter(/* LFTY JGTM SCGC YARS DMFY */ w -> w != stage && w.isShowing())
+                          .filter(w -> w != stage && w.isShowing())
                           .findFirst()
                           .orElseThrow();
-                  /* LFTY JGTM SCGC YARS DMFY */ Parent pane = window.getScene().getRoot();
+                  Parent pane = window.getScene().getRoot();
                   pane.applyCss();
                   pane.layout();
-                  /* LFTY JGTM SCGC YARS DMFY */ TextArea draft =
+                  TextArea draft =
                       (TextArea)
                           pane.lookupAll(".text-area").stream()
-                              .filter(
-                                  /* LFTY JGTM SCGC YARS DMFY */ n ->
-                                      n instanceof /* LFTY JGTM SCGC YARS DMFY */ TextArea t
-                                          && t.isEditable())
+                              .filter(n -> n instanceof TextArea t && t.isEditable())
                               .findFirst()
                               .orElseThrow();
                   draft.setText("Se inspeccionó la bomba y no se observaron fugas.");
-                  /* LFTY JGTM SCGC YARS DMFY */ DialogPane dialog =
-                      pane instanceof /* LFTY JGTM SCGC YARS DMFY */ DialogPane d
-                          ? d
-                          : (DialogPane) pane.lookup(".dialog-pane");
+                  DialogPane dialog =
+                      pane instanceof DialogPane d ? d : (DialogPane) pane.lookup(".dialog-pane");
                   ((Button) dialog.lookupButton(ButtonType.CLOSE)).fire();
-                } catch (/* LFTY JGTM SCGC YARS DMFY */ Throwable e) {
+                } catch (Throwable e) {
                   failure.set(e);
-                  /* LFTY JGTM SCGC YARS DMFY */ for (
-                  /* LFTY JGTM SCGC YARS DMFY */ Window w :
-                      List.copyOf(Window.getWindows())) /* LFTY JGTM SCGC YARS DMFY */
-                    if (w != stage) w.hide();
+                  for (Window w : List.copyOf(Window.getWindows())) if (w != stage) w.hide();
                 }
               });
           findButton("Abrir seleccionada").fire();
@@ -202,21 +229,17 @@ import org.junit.jupiter.api.io.TempDir;
         context.incidents.read(tech, id).draft());
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void setupUi() throws Exception {
+  private void setupUi() throws Exception {
     fx(
         () -> {
-          /* LFTY JGTM SCGC YARS DMFY */ TextField username =
+          TextField username =
               (TextField)
                   stage.getScene().getRoot().lookupAll(".text-field").stream()
-                      .filter(
-                          /* LFTY JGTM SCGC YARS DMFY */ n ->
-                              n instanceof TextField && !(n instanceof PasswordField))
+                      .filter(n -> n instanceof TextField && !(n instanceof PasswordField))
                       .findFirst()
                       .orElseThrow();
           username.setText("soporte");
-          /* LFTY JGTM SCGC YARS DMFY */ for (
-          /* LFTY JGTM SCGC YARS DMFY */ Node n :
-              stage.getScene().getRoot().lookupAll(".password-field"))
+          for (Node n : stage.getScene().getRoot().lookupAll(".password-field"))
             ((PasswordField) n).setText(PASSWORD);
           findButton("Crear instalación").fire();
           return null;
@@ -224,17 +247,15 @@ import org.junit.jupiter.api.io.TempDir;
     awaitButton("Incidencias");
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Test
+  @Test
   void voiceDialogDisplaysReviewableSourceAndAppliesOnlyDraft() throws Exception {
     setupUi();
-    /* LFTY JGTM SCGC YARS DMFY */ String admin =
-        context.identity.login("soporte", PASSWORD.toCharArray());
+    String admin = context.identity.login("soporte", PASSWORD.toCharArray());
     context.identity.createUser(
         admin, "tecnico", PASSWORD.toCharArray(), Role.TECHNICIAN, Specialty.MECANICA);
-    /* LFTY JGTM SCGC YARS DMFY */ String tech =
-        context.identity.login("tecnico", PASSWORD.toCharArray());
-    /* LFTY JGTM SCGC YARS DMFY */ long actor = context.identity.current(tech).id();
-    /* LFTY JGTM SCGC YARS DMFY */ long id =
+    String tech = context.identity.login("tecnico", PASSWORD.toCharArray());
+    long actor = context.identity.current(tech).id();
+    long id =
         context.incidents.create(
             admin,
             "Revisar bomba",
@@ -245,12 +266,10 @@ import org.junit.jupiter.api.io.TempDir;
             Specialty.MECANICA);
     context.incidents.assign(admin, id, actor);
     context.incidents.start(tech, id);
-    /* LFTY JGTM SCGC YARS DMFY */ String narration =
-        "Se cambió la junta de goma. No se midió presión.";
+    String narration = "Se cambió la junta de goma. No se midió presión.";
     context.repository.transact(
-        /* LFTY JGTM SCGC YARS DMFY */ tx -> {
-          /* LFTY JGTM SCGC YARS DMFY */ long entry =
-              tx.addVoice(id, actor, "", java.time.Instant.now());
+        tx -> {
+          long entry = tx.addVoice(id, actor, "", java.time.Instant.now());
           tx.extraction(
               entry,
               narration,
@@ -259,53 +278,48 @@ import org.junit.jupiter.api.io.TempDir;
               "ACTIVIDADES\nSe cambió la junta de goma.\n\nOBSERVACIONES\nNo se midió presión.");
           return null;
         });
-    /* LFTY JGTM SCGC YARS DMFY */ java.util.concurrent.atomic.AtomicReference<Version> applied =
+    java.util.concurrent.atomic.AtomicReference<Version> applied =
         new java.util.concurrent.atomic.AtomicReference<>();
-    /* LFTY JGTM SCGC YARS DMFY */ java.util.concurrent.atomic.AtomicReference<Throwable> failure =
+    java.util.concurrent.atomic.AtomicReference<Throwable> failure =
         new java.util.concurrent.atomic.AtomicReference<>();
     fx(
         () -> {
           Platform.runLater(
               () -> {
                 try {
-                  /* LFTY JGTM SCGC YARS DMFY */ Window window =
+                  Window window =
                       Window.getWindows().stream()
-                          .filter(/* LFTY JGTM SCGC YARS DMFY */ w -> w != stage && w.isShowing())
+                          .filter(w -> w != stage && w.isShowing())
                           .findFirst()
                           .orElseThrow();
-                  /* LFTY JGTM SCGC YARS DMFY */ Parent pane = window.getScene().getRoot();
+                  Parent pane = window.getScene().getRoot();
                   pane.applyCss();
                   pane.layout();
                   assertTrue(
                       pane.lookupAll(".text-area").stream()
                           .anyMatch(
-                              /* LFTY JGTM SCGC YARS DMFY */ n ->
-                                  n instanceof /* LFTY JGTM SCGC YARS DMFY */ TextArea area
+                              n ->
+                                  n instanceof TextArea area
                                       && area.getText().contains("No se midió presión.")));
-                  /* LFTY JGTM SCGC YARS DMFY */ var image = window.getScene().snapshot(null);
-                  /* LFTY JGTM SCGC YARS DMFY */ BufferedImage png =
+                  var image = window.getScene().snapshot(null);
+                  BufferedImage png =
                       new BufferedImage(
                           (int) image.getWidth(),
                           (int) image.getHeight(),
                           BufferedImage.TYPE_INT_ARGB);
-                  /* LFTY JGTM SCGC YARS DMFY */ for (
-                  /* LFTY JGTM SCGC YARS DMFY */ int y = 0; y < png.getHeight(); y++)
-                    /* LFTY JGTM SCGC YARS DMFY */ for (
-                    /* LFTY JGTM SCGC YARS DMFY */ int x = 0; x < png.getWidth(); x++)
+                  for (int y = 0; y < png.getHeight(); y++)
+                    for (int x = 0; x < png.getWidth(); x++)
                       png.setRGB(x, y, image.getPixelReader().getArgb(x, y));
                   ImageIO.write(png, "png", Path.of("target/ui-evidence/voice.png").toFile());
                   buttons(pane).stream()
-                      .filter(
-                          /* LFTY JGTM SCGC YARS DMFY */ b ->
-                              b.getText().equals("Usar como borrador"))
+                      .filter(b -> b.getText().equals("Guardar borrador"))
                       .findFirst()
                       .orElseThrow()
                       .fire();
-                } catch (/* LFTY JGTM SCGC YARS DMFY */ Throwable e) {
+                } catch (Throwable e) {
                   failure.set(e);
-                  /* LFTY JGTM SCGC YARS DMFY */ for (
-                  /* LFTY JGTM SCGC YARS DMFY */ Window window : List.copyOf(Window.getWindows()))
-                    /* LFTY JGTM SCGC YARS DMFY */ if (window != stage) window.hide();
+                  for (Window window : List.copyOf(Window.getWindows()))
+                    if (window != stage) window.hide();
                 }
               });
           new VoiceDialog(context, tech, id, stage, applied::set).show();
@@ -316,61 +330,304 @@ import org.junit.jupiter.api.io.TempDir;
     assertEquals(Status.EN_PROCESO, context.incidents.read(tech, id).status());
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void awaitButton(
-      /* LFTY JGTM SCGC YARS DMFY */ String text) throws Exception {
-    /* LFTY JGTM SCGC YARS DMFY */ long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-    /* LFTY JGTM SCGC YARS DMFY */ while (System.nanoTime() < end) {
-      /* LFTY JGTM SCGC YARS DMFY */ if (fx(
+  private void awaitButton(String text) throws Exception {
+    long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+    while (System.nanoTime() < end) {
+      if (fx(
           () ->
-              buttons(stage.getScene().getRoot()).stream()
-                  .anyMatch(/* LFTY JGTM SCGC YARS DMFY */ b -> text.equals(b.getText())))) return;
+              buttons(stage.getScene().getRoot()).stream().anyMatch(b -> text.equals(b.getText()))))
+        return;
       Thread.sleep(50);
     }
     fail("No apareció el botón " + text);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private Button findButton(
-      /* LFTY JGTM SCGC YARS DMFY */ String text) {
+  @Test
+  void automaticVoicePreparationShowsEditableReviewAndRequiresExplicitSave() throws Exception {
+    var calls = new java.util.concurrent.CopyOnWriteArrayList<String>();
+    var saved = new java.util.concurrent.atomic.AtomicReference<String>();
+    VoiceEntry initial =
+        new VoiceEntry(100, 1, 1, "test.wav", "", "", "", "", "", java.time.Instant.now());
+    String narration = "Se revisó la bomba y no se observaron fugas.";
+    VoiceDraftSession backend =
+        new VoiceDraftSession() {
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public List<VoiceEntry> history() {
+            return List.of(initial);
+          }
+
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public VoiceEntry create(boolean audio) {
+            throw new AssertionError("No debe grabar al abrir");
+          }
+
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public Path audio(VoiceEntry entry) {
+            throw new AssertionError("No debe acceder al micrófono");
+          }
+
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public VoiceEntry transcribe(VoiceEntry entry) {
+            calls.add("transcribe");
+            return new VoiceEntry(
+                100, 1, 1, "test.wav", narration, narration, "", "", "", initial.createdAt());
+          }
+
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public VoiceEntry organize(VoiceEntry entry, String text) {
+            calls.add("organize");
+            assertEquals(narration, text);
+            return new VoiceEntry(
+                100,
+                1,
+                1,
+                "test.wav",
+                narration,
+                narration,
+                dev.voxora.voice.AiRuntime.hash(text),
+                "{}",
+                "RESULTADOS\n" + text,
+                initial.createdAt());
+          }
+
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public void correct(VoiceEntry entry, String text) {}
+
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public void accept(VoiceEntry entry, String text, String review) {
+            saved.set(review);
+          }
+
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public boolean replacesContent() {
+            return false;
+          }
+
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public String acceptLabel() {
+            return "Guardar borrador";
+          }
+        };
+    var workflow = new java.util.concurrent.atomic.AtomicReference<VoiceDialog>();
+    Platform.runLater(
+        () -> {
+          VoiceDialog voice = new VoiceDialog(backend, stage, () -> {});
+          workflow.set(voice);
+          Platform.runLater(() -> voice.processAudio(initial));
+          voice.show();
+        });
+    awaitVoiceStatus("Listo.");
+    fx(
+        () -> {
+          Parent pane = voicePane();
+          assertEquals(List.of("transcribe", "organize"), calls);
+          assertNull(saved.get());
+          TextArea result = (TextArea) pane.lookup("#voice-result");
+          assertTrue(result.isEditable());
+          result.setText("Resultado corregido por el técnico.");
+          ((Button) pane.lookup("#voice-apply")).fire();
+          return null;
+        });
+    assertEquals("Resultado corregido por el técnico.", saved.get());
+  }
+
+  @Test
+  void incidentNarrationStaysPendingAndChecksRoleWithoutCreatingTicket() throws Exception {
+    setupUi();
+    String admin = context.identity.login("soporte", PASSWORD.toCharArray());
+    var accepted = new java.util.concurrent.atomic.AtomicReference<String>();
+    VoiceDraftSession session = VoiceDraftSession.incident(context, admin, false, accepted::set);
+    VoiceEntry entry = session.create(false);
+    session.correct(entry, "Se encontró una fuga en la bomba.");
+    var reopened = VoiceDraftSession.incident(context, admin, false, accepted::set);
+    assertEquals(
+        "Se encontró una fuga en la bomba.", reopened.history().getFirst().correctedText());
+    assertTrue(context.incidents.list(admin).isEmpty());
+    assertNull(accepted.get());
+    VoiceEntry noProposal = reopened.history().getFirst();
+    assertThrows(
+        RuleViolation.class,
+        () -> reopened.accept(noProposal, noProposal.correctedText(), "Sin procesar"));
+    context.identity.createUser(
+        admin, "tecnico", PASSWORD.toCharArray(), Role.TECHNICIAN, Specialty.MECANICA);
+    String tech = context.identity.login("tecnico", PASSWORD.toCharArray());
+    assertThrows(
+        RuleViolation.class, () -> VoiceDraftSession.incident(context, tech, false, accepted::set));
+  }
+
+  @Test
+  void failedAutomaticOrganizationKeepsTranscriptAvailableForCorrection() throws Exception {
+    VoiceEntry initial =
+        new VoiceEntry(100, 1, 1, "audio.wav", "", "", "", "", "", java.time.Instant.now());
+    String narration = "No se midió presión. Se revisó el equipo.";
+    VoiceDraftSession backend =
+        new VoiceDraftSession() {
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public List<VoiceEntry> history() {
+            return List.of(initial);
+          }
+
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public VoiceEntry create(boolean audio) {
+            throw new AssertionError();
+          }
+
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public Path audio(VoiceEntry entry) {
+            throw new AssertionError();
+          }
+
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public VoiceEntry transcribe(VoiceEntry entry) {
+            return new VoiceEntry(
+                100, 1, 1, "audio.wav", narration, narration, "", "", "", initial.createdAt());
+          }
+
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public VoiceEntry organize(VoiceEntry entry, String text) {
+            throw new IllegalStateException("Motor no disponible");
+          }
+
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public void correct(VoiceEntry entry, String text) {}
+
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public void accept(VoiceEntry entry, String text, String reviewed) {
+            fail("No debe guardar un fallo");
+          }
+
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public boolean replacesContent() {
+            return false;
+          }
+
+          /* LFTY · JGTM · SCGC · YARS · DMFY */
+          public String acceptLabel() {
+            return "Guardar borrador";
+          }
+        };
+    Platform.runLater(
+        () -> {
+          VoiceDialog voice = new VoiceDialog(backend, stage, () -> {});
+          Platform.runLater(() -> voice.processAudio(initial));
+          voice.show();
+        });
+    awaitVoiceStatus("Motor no disponible");
+    fx(
+        () -> {
+          Parent pane = voicePane();
+          pane.applyCss();
+          pane.layout();
+          assertEquals(narration, ((TextArea) pane.lookup("#voice-source")).getText());
+          assertTrue(((Button) pane.lookup("#voice-apply")).isDisabled());
+          pane.getScene().getWindow().hide();
+          return null;
+        });
+  }
+
+  private Parent voicePane() {
+    return Window.getWindows().stream()
+        .filter(w -> w != stage && w.isShowing())
+        .findFirst()
+        .orElseThrow()
+        .getScene()
+        .getRoot();
+  }
+
+  @Test
+  void incidentDescriptionPreservesUnclassifiedSentences() throws Exception {
+    String narration = "Se detectó una fuga en la bomba. Hay agua en el suelo.";
+    var result =
+        dev.voxora.voice.LlamaExtractor.resolve(
+            narration,
+            dev.voxora.voice.AiRuntime.JSON.readTree(
+                "{\"actividades\":[],\"materiales\":[],\"pruebas\":[],\"resultados\":[],\"observaciones\":[],\"hallazgos\":[0]}"));
+    String description = VoiceDraftSession.PendingIncident.completeDescription(result);
+    assertTrue(description.contains("Se detectó una fuga en la bomba."));
+    assertTrue(description.contains("Hay agua en el suelo."));
+  }
+
+  @Test
+  @org.junit.jupiter.api.condition.EnabledIfSystemProperty(
+      named = "voxora.realAi",
+      matches = "true")
+  void realNewIncidentDictationPreparesDescriptionWithoutCreatingIt() throws Exception {
+    setupUi();
+    String admin = context.identity.login("soporte", PASSWORD.toCharArray());
+    var accepted = new java.util.concurrent.atomic.AtomicReference<String>();
+    var session = VoiceDraftSession.incident(context, admin, false, accepted::set);
+    VoiceEntry audio = session.create(true);
+    dev.voxora.voice.AudioFiles.normalize(
+        Path.of(System.getProperty("voxora.audioFixture")), session.audio(audio));
+    VoiceEntry transcribed = session.transcribe(audio);
+    assertFalse(transcribed.rawText().isBlank());
+    VoiceEntry organized =
+        session.organize(
+            transcribed,
+            "Se detectó una fuga en la bomba del taller. Se observa agua en el suelo.");
+    assertFalse(organized.proposal().isBlank());
+    session.accept(organized, organized.correctedText(), organized.proposal());
+    assertTrue(accepted.get().contains("fuga"));
+    assertTrue(accepted.get().contains("agua"));
+    assertTrue(context.incidents.list(admin).isEmpty());
+  }
+
+  private void awaitVoiceStatus(String expected) throws Exception {
+    long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+    while (System.nanoTime() < end) {
+      if (fx(
+          () -> {
+            try {
+              Parent pane = voicePane();
+              pane.applyCss();
+              pane.layout();
+              var node = pane.lookup("#voice-status");
+              return node instanceof Label label && label.getText().contains(expected);
+            } catch (NoSuchElementException e) {
+              return false;
+            }
+          })) return;
+      Thread.sleep(50);
+    }
+    fail("No apareció el estado: " + expected);
+  }
+
+  private Button findButton(String text) {
     layout();
     return buttons(stage.getScene().getRoot()).stream()
-        .filter(/* LFTY JGTM SCGC YARS DMFY */ b -> b.getText().equals(text))
+        .filter(b -> b.getText().equals(text))
         .findFirst()
         .orElseThrow(() -> new IllegalStateException("No se encontró: " + text));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void layout() {
+  private void layout() {
     stage.getScene().getRoot().applyCss();
     stage.getScene().getRoot().layout();
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private static List<Button> buttons(
-      /* LFTY JGTM SCGC YARS DMFY */ Parent root) {
+  private static List<Button> buttons(Parent root) {
     return root.lookupAll(".button").stream()
         .filter(Button.class::isInstance)
         .map(Button.class::cast)
         .toList();
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void snapshot(
-      /* LFTY JGTM SCGC YARS DMFY */ String name) throws Exception {
+  private void snapshot(String name) throws Exception {
     layout();
-    /* LFTY JGTM SCGC YARS DMFY */ var image = stage.getScene().snapshot(null);
-    /* LFTY JGTM SCGC YARS DMFY */ BufferedImage png =
+    var image = stage.getScene().snapshot(null);
+    BufferedImage png =
         new BufferedImage(
             (int) image.getWidth(), (int) image.getHeight(), BufferedImage.TYPE_INT_ARGB);
-    /* LFTY JGTM SCGC YARS DMFY */ for (
-    /* LFTY JGTM SCGC YARS DMFY */ int y = 0; y < png.getHeight(); y++)
-      /* LFTY JGTM SCGC YARS DMFY */ for (
-      /* LFTY JGTM SCGC YARS DMFY */ int x = 0; x < png.getWidth(); x++)
+    for (int y = 0; y < png.getHeight(); y++)
+      for (int x = 0; x < png.getWidth(); x++)
         png.setRGB(x, y, image.getPixelReader().getArgb(x, y));
-    /* LFTY JGTM SCGC YARS DMFY */ Path destination = Path.of("target/ui-evidence", name + ".png");
+    Path destination = Path.of("target/ui-evidence", name + ".png");
     Files.createDirectories(destination.getParent());
     ImageIO.write(png, "png", destination.toFile());
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private static <T> T fx(
-      /* LFTY JGTM SCGC YARS DMFY */ java.util.concurrent.Callable<T> callable) throws Exception {
-    /* LFTY JGTM SCGC YARS DMFY */ FutureTask<T> task = new FutureTask<>(callable);
+  private static <T> T fx(java.util.concurrent.Callable<T> callable) throws Exception {
+    FutureTask<T> task = new FutureTask<>(callable);
     Platform.runLater(task);
     return task.get(20, TimeUnit.SECONDS);
   }

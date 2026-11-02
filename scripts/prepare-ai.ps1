@@ -1,4 +1,4 @@
-param([string]$Destination = (Join-Path (Split-Path -Parent $PSScriptRoot) '.local-runtime'))
+param([string]$Destination = (Join-Path (Split-Path -Parent $PSScriptRoot) '.local-runtime'), [switch]$Offline)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $manifestPath = Join-Path $root 'src\main\resources\ai\components.json'
@@ -10,6 +10,7 @@ foreach ($component in $manifest.components) {
     New-Item -ItemType Directory -Path (Split-Path -Parent $file) -Force | Out-Null
     $valid = (Test-Path -LiteralPath $file) -and ((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -eq $component.sha256)
     if (-not $valid) {
+        if ($Offline) { throw "Componente ausente o SHA-256 incorrecto: $($component.id). Ejecuta sin -Offline para descargarlo." }
         Write-Output "Descargando $($component.id): $($component.size) bytes"
         $partial = "$file.part"
         & curl.exe --location --fail --silent --show-error --retry 3 --connect-timeout 30 --max-time 3600 --speed-limit 1024 --speed-time 60 --continue-at - --output $partial $component.url
@@ -28,6 +29,11 @@ $sources = @{
     'Qwen3-LICENSE.txt'='https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/bc640142c66e1fdd12af0bd68f40445458f3869b/LICENSE';
     'Whisper-LICENSE.txt'='https://raw.githubusercontent.com/openai/whisper/v20250625/LICENSE'
 }
-foreach ($name in $sources.Keys) { Invoke-WebRequest -UseBasicParsing -Uri $sources[$name] -OutFile (Join-Path $licenses $name) }
+foreach ($name in $sources.Keys) {
+    $licensePath = Join-Path $licenses $name
+    if ($Offline) {
+        if (-not (Test-Path -LiteralPath $licensePath) -or (Get-Item -LiteralPath $licensePath).Length -eq 0) { throw "Falta la licencia $name. Ejecuta sin -Offline." }
+    } else { Invoke-WebRequest -UseBasicParsing -Uri $sources[$name] -OutFile $licensePath }
+}
 Copy-Item -LiteralPath $manifestPath -Destination (Join-Path $Destination 'components.json') -Force
 Write-Output "Motores y modelos preparados en $Destination"

@@ -22,102 +22,108 @@ import javafx.scene.layout.*;
 import javafx.stage.*;
 import javafx.util.Duration;
 
-/* LFTY JGTM SCGC YARS DMFY */ public final class VoxoraApplication extends Application {
-  /* LFTY JGTM SCGC YARS DMFY */ private AppContext context;
-  /* LFTY JGTM SCGC YARS DMFY */ private Stage stage;
-  /* LFTY JGTM SCGC YARS DMFY */ private BorderPane shell;
-  /* LFTY JGTM SCGC YARS DMFY */ private String token;
-  /* LFTY JGTM SCGC YARS DMFY */ private User user;
-  /* LFTY JGTM SCGC YARS DMFY */ private WorkspaceViewModel model;
-  /* LFTY JGTM SCGC YARS DMFY */ private final Label feedback = new Label();
-  /* LFTY JGTM SCGC YARS DMFY */ private final Label idleWarning = new Label();
-  /* LFTY JGTM SCGC YARS DMFY */ private final ExecutorService worker =
+/* LFTY · JGTM · SCGC · YARS · DMFY */
+public final class VoxoraApplication extends Application {
+  private AppContext context;
+  private Stage stage;
+  private BorderPane shell;
+  private String token;
+  private User user;
+  private WorkspaceViewModel model;
+  private final Label feedback = new Label();
+  private final Label idleWarning = new Label();
+  private final ExecutorService worker =
       Executors.newSingleThreadExecutor(
-          /* LFTY JGTM SCGC YARS DMFY */ r -> {
-            /* LFTY JGTM SCGC YARS DMFY */ Thread t = new Thread(r, "voxora-io");
+          r -> {
+            Thread t = new Thread(r, "voxora-io");
             t.setDaemon(true);
             return t;
           });
-  /* LFTY JGTM SCGC YARS DMFY */ private Timeline timer;
-  /* LFTY JGTM SCGC YARS DMFY */ private Runnable autosave = () -> {};
-  /* LFTY JGTM SCGC YARS DMFY */ private String currentPage = "Inicio";
-  /* LFTY JGTM SCGC YARS DMFY */ private boolean busy;
-  /* LFTY JGTM SCGC YARS DMFY */ private int inactivityMinutes = 15;
-  /* LFTY JGTM SCGC YARS DMFY */ private final boolean failFast;
-  /* LFTY JGTM SCGC YARS DMFY */ private final DateTimeFormatter dates =
+  private Timeline timer;
+  private Runnable autosave = () -> {};
+  private String currentPage = "Inicio";
+  private final Map<String, Button> navigationButtons = new LinkedHashMap<>();
+  private final Label breadcrumb = new Label();
+  private boolean busy;
+  private int inactivityMinutes = 15;
+  private final boolean failFast;
+  private final DateTimeFormatter dates =
       DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.systemDefault());
 
-  /* LFTY JGTM SCGC YARS DMFY */ public VoxoraApplication() {
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public VoxoraApplication() {
     failFast = false;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ VoxoraApplication(
-      /* LFTY JGTM SCGC YARS DMFY */ AppContext context) {
+  VoxoraApplication(AppContext context) {
     this.context = context;
     failFast = true;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Override
-  public void start(/* LFTY JGTM SCGC YARS DMFY */ Stage stage) {
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  @Override
+  public void start(Stage stage) {
     this.stage = stage;
     try {
-      /* LFTY JGTM SCGC YARS DMFY */ if (context == null) {
-        /* LFTY JGTM SCGC YARS DMFY */ String path = getParameters().getNamed().get("data");
+      if (context == null) {
+        String path = getParameters().getNamed().get("data");
         context = new AppContext(path == null ? AppContext.defaultRoot() : Path.of(path));
       }
       stage.setTitle("Voxora · Gestión técnica");
+      stage
+          .getIcons()
+          .add(
+              new javafx.scene.image.Image(
+                  Objects.requireNonNull(getClass().getResourceAsStream("/icons/voxora.png"))));
       stage.setMinWidth(1040);
       stage.setMinHeight(700);
       shell = new BorderPane();
-      /* LFTY JGTM SCGC YARS DMFY */ Scene scene = new Scene(shell, 1280, 820);
+      Scene scene = new Scene(shell, 1280, 820);
       scene
           .getStylesheets()
           .add(
               Objects.requireNonNull(getClass().getResource("/styles/voxora.css"))
                   .toExternalForm());
-      scene.addEventFilter(KeyEvent.KEY_PRESSED, /* LFTY JGTM SCGC YARS DMFY */ e -> activity());
-      scene.addEventFilter(
-          MouseEvent.MOUSE_PRESSED, /* LFTY JGTM SCGC YARS DMFY */ e -> activity());
-      scene.addEventFilter(ScrollEvent.SCROLL, /* LFTY JGTM SCGC YARS DMFY */ e -> activity());
+      scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> activity());
+      scene.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> activity());
+      scene.addEventFilter(ScrollEvent.SCROLL, e -> activity());
       stage.setScene(scene);
       stage.setOnCloseRequest(
-          /* LFTY JGTM SCGC YARS DMFY */ e -> {
+          e -> {
             try {
               autosave.run();
-            } catch (/* LFTY JGTM SCGC YARS DMFY */ Exception failure) {
+            } catch (Exception failure) {
               e.consume();
               error(failure);
             }
           });
       login();
       stage.show();
-      timer =
-          new Timeline(
-              new KeyFrame(Duration.seconds(5), /* LFTY JGTM SCGC YARS DMFY */ e -> tick()));
+      timer = new Timeline(new KeyFrame(Duration.seconds(5), e -> tick()));
       timer.setCycleCount(Animation.INDEFINITE);
       timer.play();
-    } catch (/* LFTY JGTM SCGC YARS DMFY */ Exception e) {
-      /* LFTY JGTM SCGC YARS DMFY */ if (failFast) throw new IllegalStateException(e);
+    } catch (Exception e) {
+      if (failFast) throw new IllegalStateException(e);
       e.printStackTrace(System.err);
       error(e);
       Platform.exit();
     }
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void activity() {
-    /* LFTY JGTM SCGC YARS DMFY */ if (token != null && !busy)
+  private void activity() {
+    if (token != null && !busy)
       try {
         context.identity.activity(token);
-      } catch (/* LFTY JGTM SCGC YARS DMFY */ Exception expired) {
+      } catch (Exception expired) {
         logout(true);
       }
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void tick() {
-    /* LFTY JGTM SCGC YARS DMFY */ if (token == null || busy) return;
+  private void tick() {
+    if (token == null || busy) return;
     try {
-      /* LFTY JGTM SCGC YARS DMFY */ long seconds = context.identity.idle(token).toSeconds();
-      /* LFTY JGTM SCGC YARS DMFY */ if (seconds >= inactivityMinutes * 60L) {
+      long seconds = context.identity.idle(token).toSeconds();
+      if (seconds >= inactivityMinutes * 60L) {
         logout(true);
         return;
       }
@@ -126,124 +132,122 @@ import javafx.util.Duration;
           seconds >= (inactivityMinutes - 1) * 60L
               ? "La sesión se bloqueará en menos de un minuto. Interactúa para continuar."
               : "");
-    } catch (/* LFTY JGTM SCGC YARS DMFY */ Exception e) {
-      /* LFTY JGTM SCGC YARS DMFY */ if (token != null) {
+    } catch (Exception e) {
+      if (token != null) {
         feedback.setText(e.getMessage());
         try {
           context.identity.current(token);
-        } catch (/* LFTY JGTM SCGC YARS DMFY */ Exception expired) {
+        } catch (Exception expired) {
           logout(true);
         }
       }
     }
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void login() {
+  // Sesión y navegación
+  private void login() {
     autosave = () -> {};
     shell.setLeft(null);
     shell.setTop(null);
     shell.setBottom(null);
-    /* LFTY JGTM SCGC YARS DMFY */ boolean setup = context.identity.needsSetup();
-    /* LFTY JGTM SCGC YARS DMFY */ VBox form = new VBox(16);
+    boolean setup = context.identity.needsSetup();
+    VBox form = new VBox(16);
     form.getStyleClass().add("login-card");
     form.setMaxWidth(440);
     form.setMaxHeight(Region.USE_PREF_SIZE);
-    /* LFTY JGTM SCGC YARS DMFY */ Label brand = label("voxora", "brand-login");
-    /* LFTY JGTM SCGC YARS DMFY */ Label heading =
-        label(setup ? "Prepara tu instalación" : "Bienvenido de nuevo", "title");
-    /* LFTY JGTM SCGC YARS DMFY */ Label hint =
+    Label brand = label("voxora", "brand-login");
+    Label heading = label(setup ? "Prepara tu instalación" : "Bienvenido de nuevo", "title");
+    Label hint =
         muted(
             setup
                 ? "Crea la primera cuenta de soporte. Después podrás añadir supervisores y"
                     + " técnicos."
                 : "Ingresa a tu espacio de trabajo para continuar.");
     hint.setWrapText(true);
-    /* LFTY JGTM SCGC YARS DMFY */ TextField username = field("Usuario");
-    /* LFTY JGTM SCGC YARS DMFY */ PasswordField password = new PasswordField();
+    TextField username = field("Usuario");
+    PasswordField password = new PasswordField();
     password.setPromptText(setup ? "Contraseña (mínimo 10 caracteres)" : "Contraseña");
-    /* LFTY JGTM SCGC YARS DMFY */ PasswordField confirmation = new PasswordField();
+    PasswordField confirmation = new PasswordField();
     confirmation.setPromptText("Repite la contraseña");
-    /* LFTY JGTM SCGC YARS DMFY */ Label error = new Label();
+    Label error = new Label();
     error.getStyleClass().add("error");
     error.setWrapText(true);
-    /* LFTY JGTM SCGC YARS DMFY */ Button submit =
-        new Button(setup ? "Crear instalación" : "Iniciar sesión");
+    Button submit = new Button(setup ? "Crear instalación" : "Iniciar sesión");
     submit.getStyleClass().add("primary");
     submit.setMaxWidth(Double.MAX_VALUE);
     submit.setDefaultButton(true);
     form.getChildren()
         .addAll(
             brand, heading, hint, labeled("Usuario", username), labeled("Contraseña", password));
-    /* LFTY JGTM SCGC YARS DMFY */ if (setup)
-      form.getChildren().add(labeled("Confirmación", confirmation));
+    if (setup) form.getChildren().add(labeled("Confirmación", confirmation));
     form.getChildren()
         .addAll(error, submit, muted("Trabajo local · Revisión humana · Sin conexión"));
-    /* LFTY JGTM SCGC YARS DMFY */ StackPane center = new StackPane(form);
+    StackPane center = new StackPane(form);
     center.setPadding(new Insets(28));
     shell.setCenter(center);
     submit.setOnAction(
-        /* LFTY JGTM SCGC YARS DMFY */ e -> {
-          /* LFTY JGTM SCGC YARS DMFY */ if (setup
-              && !password.getText().equals(confirmation.getText())) {
+        e -> {
+          if (setup && !password.getText().equals(confirmation.getText())) {
             error.setText("Las contraseñas no coinciden.");
             return;
           }
-          /* LFTY JGTM SCGC YARS DMFY */ char[] secret = password.getText().toCharArray();
-          /* LFTY JGTM SCGC YARS DMFY */ String name = username.getText();
+          char[] secret = password.getText().toCharArray();
+          String name = username.getText();
           password.clear();
           confirmation.clear();
           async(
               () -> {
                 try {
-                  /* LFTY JGTM SCGC YARS DMFY */ if (setup) context.identity.setup(name, secret);
+                  if (setup) context.identity.setup(name, secret);
                   return context.identity.login(name, secret);
                 } finally {
                   Arrays.fill(secret, '\0');
                 }
               },
-              /* LFTY JGTM SCGC YARS DMFY */ session -> {
+              session -> {
                 token = session;
                 user = context.identity.current(token);
                 inactivityMinutes = context.identity.inactivityMinutes(token);
                 model = new WorkspaceViewModel(context.incidents, token);
                 workspace();
               },
-              /* LFTY JGTM SCGC YARS DMFY */ failure -> error.setText(failure.getMessage()));
+              failure -> error.setText(failure.getMessage()));
         });
     Platform.runLater(username::requestFocus);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void workspace() {
-    /* LFTY JGTM SCGC YARS DMFY */ VBox navigation = new VBox(8);
+  private void workspace() {
+    VBox navigation = new VBox(8);
     navigation.getStyleClass().add("sidebar");
-    navigation.setPrefWidth(220);
+    navigation.setPrefWidth(224);
+    navigationButtons.clear();
     navigation
         .getChildren()
         .addAll(label("voxora", "brand"), label("GESTIÓN TÉCNICA", "eyebrow"), new Separator());
-    /* LFTY JGTM SCGC YARS DMFY */ List<String> pages =
-        new ArrayList<>(List.of("Inicio", "Incidencias", "Tablero"));
-    /* LFTY JGTM SCGC YARS DMFY */ if (user.role().managesIncidents())
-      pages.addAll(List.of("Revisiones", "Auditoría"));
-    /* LFTY JGTM SCGC YARS DMFY */ if (user.role() == Role.SUPERADMIN)
-      pages.addAll(List.of("Usuarios", "Configuración"));
-    /* LFTY JGTM SCGC YARS DMFY */ for (/* LFTY JGTM SCGC YARS DMFY */ String page : pages) {
-      /* LFTY JGTM SCGC YARS DMFY */ Button b = button(page, () -> navigate(page));
+    List<String> pages = new ArrayList<>(List.of("Inicio", "Mi jornada", "Incidencias", "Tablero"));
+    if (user.role().managesIncidents())
+      pages.addAll(List.of("Revisiones", "Indicadores", "Auditoría"));
+    if (user.role() == Role.SUPERADMIN) pages.addAll(List.of("Usuarios", "Configuración"));
+    for (String page : pages) {
+      Button b = button(page, () -> navigate(page));
       b.getStyleClass().add("nav-button");
+      navigationButtons.put(page, b);
       b.setMaxWidth(Double.MAX_VALUE);
       navigation.getChildren().add(b);
     }
-    /* LFTY JGTM SCGC YARS DMFY */ Region spring = new Region();
+    Region spring = new Region();
     VBox.setVgrow(spring, javafx.scene.layout.Priority.ALWAYS);
-    navigation.getChildren().addAll(spring, muted("Voxora 0.2.0"), muted("Reportes manuales"));
+    navigation
+        .getChildren()
+        .addAll(spring, muted("Voxora 0.2.0"), muted("Mantenimiento · Voz local"));
     shell.setLeft(navigation);
-    /* LFTY JGTM SCGC YARS DMFY */ Label identity =
-        label(user.username() + " · " + user.role(), "identity");
-    /* LFTY JGTM SCGC YARS DMFY */ Region spacer = new Region();
+    Label identity = label(user.username() + " · " + user.role(), "identity");
+    Region spacer = new Region();
     HBox.setHgrow(spacer, javafx.scene.layout.Priority.ALWAYS);
-    /* LFTY JGTM SCGC YARS DMFY */ HBox header =
+    HBox header =
         new HBox(
             14,
-            label("Tu espacio de trabajo", "header-label"),
+            breadcrumb,
             spacer,
             identity,
             button("Actualizar", () -> navigate(currentPage)),
@@ -251,7 +255,7 @@ import javafx.util.Duration;
     header.getStyleClass().add("topbar");
     header.setAlignment(Pos.CENTER_LEFT);
     shell.setTop(header);
-    /* LFTY JGTM SCGC YARS DMFY */ HBox footer = new HBox(16, feedback, idleWarning);
+    HBox footer = new HBox(16, feedback, idleWarning);
     footer.getStyleClass().add("footer");
     idleWarning.getStyleClass().add("error");
     shell.setBottom(footer);
@@ -259,15 +263,24 @@ import javafx.util.Duration;
     navigate("Inicio");
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void navigate(/* LFTY JGTM SCGC YARS DMFY */ String page) {
+  private void navigate(String page) {
     safe(
         () -> {
           autosave.run();
           autosave = () -> {};
           currentPage = page;
+          breadcrumb.setText("Mantenimiento  /  " + page);
+          breadcrumb.getStyleClass().setAll("header-label");
+          navigationButtons.forEach(
+              (name, b) -> {
+                b.getStyleClass().remove("nav-active");
+                if (name.equals(page)) b.getStyleClass().add("nav-active");
+              });
           model.refresh();
-          /* LFTY JGTM SCGC YARS DMFY */ switch (page) {
+          switch (page) {
             case "Inicio" -> dashboard();
+            case "Mi jornada" -> journey();
+            case "Indicadores" -> indicators();
             case "Incidencias" -> incidentList(false);
             case "Revisiones" -> incidentList(true);
             case "Tablero" -> kanban();
@@ -279,205 +292,405 @@ import javafx.util.Duration;
         });
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private VBox page(
-      /* LFTY JGTM SCGC YARS DMFY */ String title, /* LFTY JGTM SCGC YARS DMFY */ String subtitle) {
-    /* LFTY JGTM SCGC YARS DMFY */ VBox box = new VBox(22, label(title, "title"), muted(subtitle));
+  private VBox page(String title, String subtitle) {
+    VBox box = new VBox(22, label(title, "title"), muted(subtitle));
     box.getStyleClass().add("page");
     return box;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void show(/* LFTY JGTM SCGC YARS DMFY */ Node node) {
-    /* LFTY JGTM SCGC YARS DMFY */ ScrollPane scroll = new ScrollPane(node);
+  private void show(Node node) {
+    ScrollPane scroll = new ScrollPane(node);
     scroll.setFitToWidth(true);
     scroll.getStyleClass().add("page-scroll");
     shell.setCenter(scroll);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void dashboard() {
-    /* LFTY JGTM SCGC YARS DMFY */ VBox page =
-        page("Todo bajo control", "Consulta el estado del trabajo y continúa con tus incidencias.");
-    /* LFTY JGTM SCGC YARS DMFY */ HBox metrics = new HBox(12);
-    /* LFTY JGTM SCGC YARS DMFY */ for (
-    /* LFTY JGTM SCGC YARS DMFY */ Status status : Status.values()) {
-      /* LFTY JGTM SCGC YARS DMFY */ long count =
-          model.all().stream()
-              .filter(/* LFTY JGTM SCGC YARS DMFY */ i -> i.status() == status)
-              .count();
-      /* LFTY JGTM SCGC YARS DMFY */ VBox card =
-          new VBox(10, muted(status.toString()), label(Long.toString(count), "metric"));
-      card.getStyleClass().add("card");
-      HBox.setHgrow(card, javafx.scene.layout.Priority.ALWAYS);
-      card.setMaxWidth(Double.MAX_VALUE);
-      metrics.getChildren().add(card);
-    }
-    page.getChildren().add(metrics);
-    /* LFTY JGTM SCGC YARS DMFY */ HBox actions =
-        new HBox(
-            12,
-            button("Ver incidencias", () -> navigate("Incidencias")),
-            button("Abrir tablero", () -> navigate("Tablero")));
-    /* LFTY JGTM SCGC YARS DMFY */ if (user.role().managesIncidents())
+  // Seguimiento del trabajo
+  private void dashboard() {
+    VBox page =
+        page(
+            "Tu operación, de un vistazo",
+            java.time.LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                + " · Prioriza, documenta y da seguimiento al trabajo.");
+    FlowPane actions = new FlowPane(10, 10);
+    if (user.role().managesIncidents())
       actions.getChildren().add(primary("Nueva incidencia", this::createIncident));
-    page.getChildren().add(actions);
-    page.getChildren().add(label("Actividad reciente", "section-title"));
-    /* LFTY JGTM SCGC YARS DMFY */ List<Incident> recent =
-        model.all().stream()
-            .filter(/* LFTY JGTM SCGC YARS DMFY */ i -> i.status() != Status.COMPLETADO)
-            .limit(6)
-            .toList();
-    /* LFTY JGTM SCGC YARS DMFY */ if (recent.isEmpty())
+    actions
+        .getChildren()
+        .addAll(
+            button("Mi jornada", () -> navigate("Mi jornada")),
+            button("Abrir tablero", () -> navigate("Tablero")));
+    page.getChildren().addAll(actions, metrics());
+    HBox section = new HBox(12, label("Qué hacer ahora", "section-title"));
+    page.getChildren()
+        .addAll(
+            section,
+            muted(
+                "Trabajos abiertos, ordenados por prioridad. Abre una incidencia para continuar."));
+    List<Incident> active =
+        ordered(model.all().stream().filter(i -> i.status() != Status.COMPLETADO).toList());
+    if (active.isEmpty())
       page.getChildren()
           .add(
               empty(
-                  "No hay incidencias abiertas",
+                  "Todo al día",
                   user.role().managesIncidents()
                       ? "Crea una incidencia y asígnala a un técnico para comenzar."
-                      : "Tus tareas aparecerán aquí cuando el supervisor las asigne."));
-    /* LFTY JGTM SCGC YARS DMFY */ for (/* LFTY JGTM SCGC YARS DMFY */ Incident i : recent)
-      page.getChildren().add(incidentCard(i));
+                      : "Tus trabajos aparecerán aquí cuando el supervisor los asigne."));
+    else page.getChildren().add(incidentTable(active.stream().limit(8).toList()));
     show(page);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private Node incidentCard(
-      /* LFTY JGTM SCGC YARS DMFY */ Incident i) {
-    /* LFTY JGTM SCGC YARS DMFY */ VBox text =
+  private List<Incident> ordered(List<Incident> incidents) {
+    return incidents.stream()
+        .sorted(Comparator.comparing(Incident::priority).thenComparingLong(Incident::id))
+        .toList();
+  }
+
+  private Node metrics() {
+    TilePane cards = new TilePane(12, 12);
+    cards.setPrefColumns(5);
+    cards.setPrefTileWidth(170);
+    for (Status status : Status.values()) {
+      long count = model.all().stream().filter(i -> i.status() == status).count();
+      VBox card = new VBox(10, muted(status.toString()), label(Long.toString(count), "metric"));
+      card.getStyleClass()
+          .addAll("card", "metric-card", "state-" + status.name().toLowerCase(Locale.ROOT));
+      Button link =
+          button(
+              "Ver detalle →",
+              () -> {
+                navigate("Incidencias");
+                model.status.set(status);
+              });
+      link.getStyleClass().add("text-button");
+      card.getChildren().add(link);
+      cards.getChildren().add(card);
+    }
+    return cards;
+  }
+
+  private void journey() {
+    VBox page =
+        page(
+            "Plan de trabajo",
+            user.role().managesIncidents()
+                ? "Trabajos asignados y en atención de esta instalación, por prioridad."
+                : "Tus trabajos asignados y en atención, por prioridad.");
+    List<Incident> work =
+        ordered(
+            model.all().stream()
+                .filter(i -> i.status() == Status.ASIGNADO || i.status() == Status.EN_PROCESO)
+                .toList());
+    page.getChildren()
+        .add(
+            muted(
+                work.size()
+                    + " trabajos disponibles · La revisión de reportes se consulta por separado."));
+    if (work.isEmpty())
+      page.getChildren()
+          .add(
+              empty(
+                  "Tu jornada está despejada",
+                  "No hay trabajos asignados o en proceso para mostrar."));
+    for (Incident i : work) page.getChildren().add(incidentCard(i));
+    show(page);
+  }
+
+  private Node incidentCard(Incident i) {
+    VBox text =
         new VBox(
-            6,
-            label(i.code() + "  ·  " + i.title(), "section-title"),
-            muted(i.equipment() + " · " + i.technician()));
+            10,
+            label(
+                i.code() + " · " + i.priority(),
+                "priority-" + i.priority().name().toLowerCase(Locale.ROOT)),
+            label(i.title(), "section-title"),
+            muted(i.equipment() + " · " + i.specialty() + " · " + i.technician()));
     HBox.setHgrow(text, javafx.scene.layout.Priority.ALWAYS);
-    /* LFTY JGTM SCGC YARS DMFY */ HBox row =
-        new HBox(
-            16, text, label(i.status().toString(), "badge"), button("Abrir", () -> detail(i.id())));
+    VBox right =
+        new VBox(
+            18,
+            statusBadge(i.status()),
+            primary(
+                user.role().managesIncidents() ? "Ver asignación" : "Abrir atención",
+                () -> detail(i.id())));
+    right.setAlignment(Pos.CENTER_RIGHT);
+    HBox row = new HBox(20, text, right);
     row.setAlignment(Pos.CENTER_LEFT);
-    row.getStyleClass().add("card");
+    row.getStyleClass()
+        .addAll("card", "work-card", "work-" + i.priority().name().toLowerCase(Locale.ROOT));
     return row;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void incidentList(
-      /* LFTY JGTM SCGC YARS DMFY */ boolean reviews) {
-    /* LFTY JGTM SCGC YARS DMFY */ VBox page =
+  private Label statusBadge(Status status) {
+    return label(status.toString(), "badge state-" + status.name().toLowerCase(Locale.ROOT));
+  }
+
+  private void incidentList(boolean reviews) {
+    VBox page =
         page(
-            reviews ? "Reportes por revisar" : "Incidencias",
+            reviews ? "Reportes por validar" : "Incidencias",
             reviews
-                ? "Revisa la versión enviada y aprueba o solicita una corrección."
-                : "Busca por código, título, equipo, ubicación o técnico.");
+                ? "Comprueba la versión enviada y aprueba o solicita una corrección con motivo."
+                : "Busca por código, actividad, equipo, ubicación o responsable.");
     model.status.set(reviews ? Status.EN_REVISION : null);
     model.query.set("");
-    /* LFTY JGTM SCGC YARS DMFY */ TextField search = field("Buscar incidencias…");
+    model.priority.set(null);
+    model.technician.set(null);
+    TextField search = field("Buscar incidencias…");
+    search.setId("incident-search");
     search.textProperty().bindBidirectional(model.query);
-    HBox.setHgrow(search, javafx.scene.layout.Priority.ALWAYS);
-    /* LFTY JGTM SCGC YARS DMFY */ ComboBox<Status> filter =
-        new ComboBox<>(FXCollections.observableArrayList(Status.values()));
+    search.setPrefWidth(320);
+    ComboBox<Status> filter = new ComboBox<>(FXCollections.observableArrayList(Status.values()));
     filter.setPromptText("Todos los estados");
     filter.valueProperty().bindBidirectional(model.status);
     filter.setDisable(reviews);
-    /* LFTY JGTM SCGC YARS DMFY */ HBox bar =
-        new HBox(
-            12,
-            search,
-            filter,
+    ComboBox<dev.voxora.domain.Model.Priority> priority =
+        new ComboBox<>(
+            FXCollections.observableArrayList(dev.voxora.domain.Model.Priority.values()));
+    priority.setPromptText("Todas las prioridades");
+    priority.setId("priority-filter");
+    priority.valueProperty().bindBidirectional(model.priority);
+    FlowPane filters = new FlowPane(12, 12);
+    filters.getStyleClass().add("filter-panel");
+    filters.getChildren().addAll(search, labeled("Estado", filter), labeled("Prioridad", priority));
+    if (user.role().managesIncidents()) {
+      ComboBox<String> tech =
+          new ComboBox<>(
+              FXCollections.observableArrayList(
+                  model.all().stream().map(Incident::technician).distinct().sorted().toList()));
+      tech.setPromptText("Todos los técnicos");
+      tech.setId("technician-filter");
+      tech.valueProperty().bindBidirectional(model.technician);
+      filters.getChildren().add(labeled("Responsable", tech));
+    }
+    filters
+        .getChildren()
+        .add(
             button(
                 "Limpiar",
                 () -> {
                   model.query.set("");
                   model.status.set(reviews ? Status.EN_REVISION : null);
+                  model.priority.set(null);
+                  model.technician.set(null);
                 }));
-    /* LFTY JGTM SCGC YARS DMFY */ if (!reviews && user.role().managesIncidents())
-      bar.getChildren().add(primary("Nueva incidencia", this::createIncident));
-    page.getChildren().add(bar);
-    /* LFTY JGTM SCGC YARS DMFY */ TableView<Incident> table = new TableView<>(model.visible);
-    table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-    table.setPrefHeight(490);
+    if (!reviews && user.role().managesIncidents())
+      filters.getChildren().add(primary("Nueva incidencia", this::createIncident));
+    Label count = muted("");
+    count
+        .textProperty()
+        .bind(
+            javafx.beans.binding.Bindings.size(model.visible)
+                .asString("%d incidencias encontradas"));
+    TableView<Incident> table = incidentTable(model.visible);
+    table.setId("incident-table");
     table.setPlaceholder(
-        muted(
+        empty(
+            reviews ? "Estás al día" : "No hay coincidencias",
             reviews
-                ? "No hay reportes pendientes de revisión."
-                : "No hay incidencias que coincidan con la búsqueda."));
-    table.getColumns().add(column("Código", Incident::code, 100));
-    table.getColumns().add(column("Incidencia", Incident::title, 280));
-    table.getColumns().add(column("Equipo", Incident::equipment, 140));
-    table
-        .getColumns()
-        .add(column("Prioridad", /* LFTY JGTM SCGC YARS DMFY */ i -> i.priority().name(), 95));
-    table
-        .getColumns()
-        .add(column("Estado", /* LFTY JGTM SCGC YARS DMFY */ i -> i.status().toString(), 130));
-    table.getColumns().add(column("Técnico", Incident::technician, 140));
-    /* LFTY JGTM SCGC YARS DMFY */ Runnable open =
-        () -> {
-          /* LFTY JGTM SCGC YARS DMFY */ Incident i = table.getSelectionModel().getSelectedItem();
-          /* LFTY JGTM SCGC YARS DMFY */ if (i != null) detail(i.id());
-        };
-    table.setOnMouseClicked(
-        /* LFTY JGTM SCGC YARS DMFY */ e -> {
-          /* LFTY JGTM SCGC YARS DMFY */ if (e.getClickCount() == 2) open.run();
-        });
-    table.setOnKeyPressed(
-        /* LFTY JGTM SCGC YARS DMFY */ e -> {
-          /* LFTY JGTM SCGC YARS DMFY */ if (e.getCode() == KeyCode.ENTER) open.run();
-        });
-    page.getChildren().addAll(table, button("Abrir seleccionada", open));
+                ? "Los reportes enviados aparecerán aquí para su revisión."
+                : "Prueba otros filtros o crea una incidencia nueva."));
+    Button open =
+        button(
+            reviews ? "Revisar seleccionada" : "Abrir seleccionada",
+            () -> {
+              Incident i = table.getSelectionModel().getSelectedItem();
+              if (i != null) detail(i.id());
+            });
+    open.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+    page.getChildren().addAll(filters, count, table, open);
     show(page);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void kanban() {
-    /* LFTY JGTM SCGC YARS DMFY */ VBox page =
+  private TableView<Incident> incidentTable(List<Incident> values) {
+    return incidentTable(FXCollections.observableArrayList(values));
+  }
+
+  private TableView<Incident> incidentTable(javafx.collections.ObservableList<Incident> values) {
+    TableView<Incident> table = new TableView<>(values);
+    table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+    table
+        .prefHeightProperty()
+        .bind(
+            javafx.beans.binding.Bindings.size(values)
+                .multiply(48)
+                .add(58)
+                .map(height -> Math.max(210, Math.min(490, height.doubleValue()))));
+    table.setMinHeight(210);
+    table
+        .getColumns()
+        .addAll(
+            column("Código", Incident::code, 100),
+            column("Actividad", Incident::title, 270),
+            column("Equipo", Incident::equipment, 125),
+            column("Prioridad", i -> i.priority().name(), 95),
+            column("Responsable", Incident::technician, 125),
+            column("Estado", i -> i.status().toString(), 130));
+    Runnable open =
+        () -> {
+          Incident i = table.getSelectionModel().getSelectedItem();
+          if (i != null) detail(i.id());
+        };
+    table.setOnMouseClicked(
+        e -> {
+          if (e.getClickCount() == 2) open.run();
+        });
+    table.setOnKeyPressed(
+        e -> {
+          if (e.getCode() == KeyCode.ENTER) open.run();
+        });
+    table.setRowFactory(
+        v -> {
+          TableRow<Incident> row = new TableRow<>();
+          row.itemProperty()
+              .addListener(
+                  (o, a, b) -> {
+                    row.setTooltip(b == null ? null : new Tooltip(b.title() + "\n" + b.location()));
+                  });
+          return row;
+        });
+    return table;
+  }
+
+  private void kanban() {
+    VBox page =
         page(
-            "Tablero de trabajo",
-            "Cada tarjeta representa una incidencia. Ábrela para realizar la siguiente acción.");
-    /* LFTY JGTM SCGC YARS DMFY */ HBox columns = new HBox(14);
-    /* LFTY JGTM SCGC YARS DMFY */ for (
-    /* LFTY JGTM SCGC YARS DMFY */ Status status : Status.values()) {
-      /* LFTY JGTM SCGC YARS DMFY */ List<Incident> incidents =
-          model.all().stream()
-              .filter(/* LFTY JGTM SCGC YARS DMFY */ i -> i.status() == status)
-              .toList();
-      /* LFTY JGTM SCGC YARS DMFY */ VBox column =
-          new VBox(12, label(status + "  ·  " + incidents.size(), "section-title"));
-      column.setPrefWidth(215);
-      column.setMinWidth(215);
+            "Tablero operativo",
+            "Sigue el avance del trabajo. Abre una tarjeta para realizar la siguiente acción.");
+    HBox columns = new HBox(14);
+    columns.setAlignment(Pos.TOP_LEFT);
+    for (Status status : Status.values()) {
+      List<Incident> incidents =
+          ordered(model.all().stream().filter(i -> i.status() == status).toList());
+      Region space = new Region();
+      HBox.setHgrow(space, javafx.scene.layout.Priority.ALWAYS);
+      HBox heading =
+          new HBox(
+              8,
+              label(status.toString(), "section-title"),
+              space,
+              label(Integer.toString(incidents.size()), "badge"));
+      VBox column = new VBox(14, heading);
+      column.setPrefWidth(205);
+      column.setMinWidth(180);
+      column.setMaxWidth(Double.MAX_VALUE);
+      HBox.setHgrow(column, javafx.scene.layout.Priority.ALWAYS);
       column.getStyleClass().add("kanban-column");
-      /* LFTY JGTM SCGC YARS DMFY */ for (/* LFTY JGTM SCGC YARS DMFY */ Incident i : incidents) {
-        /* LFTY JGTM SCGC YARS DMFY */ Button card =
-            new Button(
-                i.code()
-                    + "  ·  "
-                    + i.priority()
-                    + "\n\n"
-                    + i.title()
-                    + "\n\n"
-                    + i.equipment()
-                    + "\n"
-                    + i.technician());
-        card.setWrapText(true);
-        card.setMaxWidth(Double.MAX_VALUE);
+      for (Incident i : incidents) {
+        Label title = label(i.title(), "section-title");
+        VBox card =
+            new VBox(
+                12,
+                label(
+                    i.code() + " · " + i.priority(),
+                    "priority-" + i.priority().name().toLowerCase(Locale.ROOT)),
+                title,
+                muted(i.equipment()),
+                muted(i.technician()),
+                button("Abrir", () -> detail(i.id())));
         card.getStyleClass().add("kanban-card");
-        card.setOnAction(/* LFTY JGTM SCGC YARS DMFY */ e -> detail(i.id()));
         column.getChildren().add(card);
       }
-      /* LFTY JGTM SCGC YARS DMFY */ if (incidents.isEmpty())
-        column.getChildren().add(muted("Sin incidencias"));
+      if (incidents.isEmpty()) column.getChildren().add(muted("Sin incidencias"));
       columns.getChildren().add(column);
     }
     page.getChildren().add(columns);
     show(page);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void createIncident() {
-    /* LFTY JGTM SCGC YARS DMFY */ Dialog<ButtonType> dialog = dialog("Nueva incidencia", 760, 650);
-    /* LFTY JGTM SCGC YARS DMFY */ TextField title = field("Actividad solicitada"),
+  private void indicators() {
+    VBox page =
+        page(
+            "Indicadores de mantenimiento",
+            "Información de las incidencias registradas en esta instalación.");
+    page.getChildren().add(metrics());
+    double[] hours =
+        model.all().stream()
+            .filter(
+                i ->
+                    i.status() == Status.COMPLETADO
+                        && i.startedAt() != null
+                        && i.finishedAt() != null
+                        && !i.finishedAt().isBefore(i.startedAt()))
+            .mapToDouble(
+                i ->
+                    java.time.Duration.between(i.startedAt(), i.finishedAt()).toMillis()
+                        / 3600000.0)
+            .sorted()
+            .toArray();
+    String median =
+        hours.length == 0
+            ? "Sin cierres registrados"
+            : String.format(
+                Locale.forLanguageTag("es"),
+                "%.2f h",
+                hours.length % 2 == 1
+                    ? hours[hours.length / 2]
+                    : (hours[hours.length / 2 - 1] + hours[hours.length / 2]) / 2);
+    VBox timing =
+        new VBox(
+            12,
+            label("Mediana de inicio a cierre", "section-title"),
+            label(median, "metric"),
+            muted(
+                "Incluye la espera de revisión. No representa horas efectivas ni descuenta"
+                    + " pausas."));
+    timing.getStyleClass().add("card");
+    page.getChildren().add(timing);
+    page.getChildren().add(label("Distribución por prioridad", "section-title"));
+    for (dev.voxora.domain.Model.Priority priority : dev.voxora.domain.Model.Priority.values()) {
+      long count = model.all().stream().filter(i -> i.priority() == priority).count();
+      ProgressBar bar =
+          new ProgressBar(model.all().isEmpty() ? 0 : (double) count / model.all().size());
+      bar.setMaxWidth(Double.MAX_VALUE);
+      HBox.setHgrow(bar, javafx.scene.layout.Priority.ALWAYS);
+      HBox row =
+          new HBox(
+              16,
+              label(priority.name(), "priority-" + priority.name().toLowerCase(Locale.ROOT)),
+              bar,
+              muted(count + " incidencias"));
+      row.setAlignment(Pos.CENTER_LEFT);
+      page.getChildren().add(row);
+    }
+    page.getChildren()
+        .add(
+            muted(
+                "La reincidencia por tipo correctivo requiere un catálogo de tipos antes de"
+                    + " calcularse."));
+    show(page);
+  }
+
+  // Incidencias y atención técnica
+  private void createIncident() {
+    Dialog<ButtonType> dialog = dialog("Nueva incidencia", 760, 650);
+    TextField title = field("Actividad solicitada"),
         equipment = field("Código o nombre del equipo"),
         location = field("Área o ubicación");
-    /* LFTY JGTM SCGC YARS DMFY */ TextArea description =
-        area("Describe el problema o la necesidad", 6);
-    /* LFTY JGTM SCGC YARS DMFY */ ComboBox<dev.voxora.domain.Model.Priority> priority =
+    TextArea description = area("Describe el problema o la necesidad", 6);
+    Button dictate =
+        primary(
+            "Hablar",
+            () ->
+                VoiceDialog.forIncident(
+                        context,
+                        token,
+                        dialog.getDialogPane().getScene().getWindow(),
+                        !description.getText().isBlank(),
+                        description::setText)
+                    .showAndRecord());
+    Label voiceHint =
+        muted(
+            "Cuéntanos el problema. Preparamos la descripción y tú confirmas los datos antes de"
+                + " crear la incidencia.");
+    ComboBox<dev.voxora.domain.Model.Priority> priority =
         combo(dev.voxora.domain.Model.Priority.values(), dev.voxora.domain.Model.Priority.MEDIA);
-    /* LFTY JGTM SCGC YARS DMFY */ ComboBox<Specialty> specialty =
-        combo(Specialty.values(), Specialty.GENERAL);
-    /* LFTY JGTM SCGC YARS DMFY */ VBox form =
+    ComboBox<Specialty> specialty = combo(Specialty.values(), Specialty.GENERAL);
+    VBox form =
         new VBox(
             14,
+            new HBox(12, dictate, voiceHint),
             labeled("Título", title),
             labeled("Equipo", equipment),
             labeled("Ubicación", location),
@@ -485,17 +698,16 @@ import javafx.util.Duration;
             labeled("Especialidad", specialty),
             labeled("Descripción", description));
     dialog.getDialogPane().setContent(scroll(form));
-    /* LFTY JGTM SCGC YARS DMFY */ ButtonType create =
-        new ButtonType("Crear incidencia", ButtonBar.ButtonData.OK_DONE);
+    ButtonType create = new ButtonType("Crear incidencia", ButtonBar.ButtonData.OK_DONE);
     dialog.getDialogPane().getButtonTypes().addAll(create, ButtonType.CANCEL);
-    /* LFTY JGTM SCGC YARS DMFY */ Button b = (Button) dialog.getDialogPane().lookupButton(create);
+    Button b = (Button) dialog.getDialogPane().lookupButton(create);
     b.addEventFilter(
         javafx.event.ActionEvent.ACTION,
-        /* LFTY JGTM SCGC YARS DMFY */ e -> {
+        e -> {
           e.consume();
           safe(
               () -> {
-                /* LFTY JGTM SCGC YARS DMFY */ long id =
+                long id =
                     context.incidents.create(
                         token,
                         title.getText(),
@@ -512,19 +724,18 @@ import javafx.util.Duration;
     dialog.showAndWait();
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void detail(/* LFTY JGTM SCGC YARS DMFY */ long id) {
+  private void detail(long id) {
     safe(() -> showDetail(id));
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void showDetail(/* LFTY JGTM SCGC YARS DMFY */ long id) {
-    /* LFTY JGTM SCGC YARS DMFY */ Incident i = context.incidents.read(token, id);
-    /* LFTY JGTM SCGC YARS DMFY */ boolean editable =
+  private void showDetail(long id) {
+    Incident i = context.incidents.read(token, id);
+    boolean editable =
         user.role() == Role.TECHNICIAN
             && Objects.equals(i.assignedTo(), user.id())
             && i.status() == Status.EN_PROCESO;
-    /* LFTY JGTM SCGC YARS DMFY */ Dialog<ButtonType> dialog =
-        dialog(i.code() + " · " + i.title(), 960, 780);
-    /* LFTY JGTM SCGC YARS DMFY */ VBox content = new VBox(16);
+    Dialog<ButtonType> dialog = dialog(i.code() + " · " + i.title(), 960, 780);
+    VBox content = new VBox(16);
     content
         .getChildren()
         .addAll(
@@ -539,19 +750,19 @@ import javafx.util.Duration;
                     + " · Responsable: "
                     + i.technician()),
             labeled("Solicitud", readArea(i.description(), 3)));
-    /* LFTY JGTM SCGC YARS DMFY */ if (!i.observation().isBlank())
+    if (!i.observation().isBlank())
       content
           .getChildren()
           .add(labeled("Observación del supervisor", readArea(i.observation(), 3)));
-    /* LFTY JGTM SCGC YARS DMFY */ HBox actions = new HBox(12);
-    /* LFTY JGTM SCGC YARS DMFY */ if (user.role().managesIncidents()
+    HBox actions = new HBox(12);
+    if (user.role().managesIncidents()
         && (i.status() == Status.PENDIENTE || i.status() == Status.ASIGNADO)) {
-      /* LFTY JGTM SCGC YARS DMFY */ ComboBox<User> technicians =
+      ComboBox<User> technicians =
           new ComboBox<>(
               FXCollections.observableArrayList(
                   context.identity.users(token).stream()
                       .filter(
-                          /* LFTY JGTM SCGC YARS DMFY */ u ->
+                          u ->
                               u.active()
                                   && u.role() == Role.TECHNICIAN
                                   && u.specialty() == i.specialty())
@@ -567,7 +778,7 @@ import javafx.util.Duration;
                   () ->
                       safe(
                           () -> {
-                            /* LFTY JGTM SCGC YARS DMFY */ if (technicians.getValue() == null)
+                            if (technicians.getValue() == null)
                               throw new RuleViolation("Selecciona un técnico.");
                             context.incidents.assign(token, id, technicians.getValue().id());
                             dialog.close();
@@ -575,8 +786,7 @@ import javafx.util.Duration;
                             detail(id);
                           })));
     }
-    /* LFTY JGTM SCGC YARS DMFY */ if (user.role() == Role.TECHNICIAN
-        && i.status() == Status.ASIGNADO)
+    if (user.role() == Role.TECHNICIAN && i.status() == Status.ASIGNADO)
       actions
           .getChildren()
           .add(
@@ -590,36 +800,32 @@ import javafx.util.Duration;
                             navigate(currentPage);
                             detail(id);
                           })));
-    /* LFTY JGTM SCGC YARS DMFY */ TextArea draft =
-        area("Describe las actividades, pruebas y resultados…", 10);
+    TextArea draft = area("Describe las actividades, pruebas y resultados…", 10);
     draft.setText(i.draft());
     draft.setEditable(editable);
-    /* LFTY JGTM SCGC YARS DMFY */ if (i.startedAt() != null)
+    if (i.startedAt() != null)
       content
           .getChildren()
           .addAll(label(editable ? "Reporte de atención" : "Reporte", "section-title"), draft);
-    /* LFTY JGTM SCGC YARS DMFY */ AtomicReference<String> saved = new AtomicReference<>(i.draft());
-    /* LFTY JGTM SCGC YARS DMFY */ Label savedLabel =
+    AtomicReference<String> saved = new AtomicReference<>(i.draft());
+    Label savedLabel =
         muted(editable ? "Guardado automático cada 5 segundos." : "Versión de solo lectura.");
-    /* LFTY JGTM SCGC YARS DMFY */ Runnable save =
+    Runnable save =
         () -> {
-          /* LFTY JGTM SCGC YARS DMFY */ if (editable
-              && token != null
-              && !saved.get().equals(draft.getText())) {
-            /* LFTY JGTM SCGC YARS DMFY */ Version v =
-                context.incidents.save(token, id, draft.getText());
+          if (editable && token != null && !saved.get().equals(draft.getText())) {
+            Version v = context.incidents.save(token, id, draft.getText());
             saved.set(draft.getText());
             savedLabel.setText("Borrador guardado · Versión " + v.number());
           }
         };
-    /* LFTY JGTM SCGC YARS DMFY */ if (editable) {
+    if (editable) {
       autosave = save;
       content.getChildren().add(savedLabel);
       actions
           .getChildren()
           .add(
               button(
-                  "Voz y narración",
+                  "Hablar",
                   () -> {
                     save.run();
                     new VoiceDialog(
@@ -627,7 +833,7 @@ import javafx.util.Duration;
                             token,
                             id,
                             dialog.getDialogPane().getScene().getWindow(),
-                            /* LFTY JGTM SCGC YARS DMFY */ v -> {
+                            v -> {
                               draft.setText(v.content());
                               saved.set(v.content());
                               savedLabel.setText(
@@ -635,7 +841,7 @@ import javafx.util.Duration;
                                       + v.number()
                                       + " · revisa antes de enviar");
                             })
-                        .show();
+                        .showAndRecord();
                   }));
       actions
           .getChildren()
@@ -645,8 +851,7 @@ import javafx.util.Duration;
                   () ->
                       safe(
                           () -> {
-                            /* LFTY JGTM SCGC YARS DMFY */ Version v =
-                                context.incidents.save(token, id, draft.getText());
+                            Version v = context.incidents.save(token, id, draft.getText());
                             saved.set(draft.getText());
                             savedLabel.setText("Guardado · Versión " + v.number());
                           })),
@@ -655,10 +860,9 @@ import javafx.util.Duration;
                   () ->
                       safe(
                           () -> {
-                            /* LFTY JGTM SCGC YARS DMFY */ Version v =
-                                context.incidents.preview(token, id, draft.getText());
+                            Version v = context.incidents.preview(token, id, draft.getText());
                             saved.set(draft.getText());
-                            /* LFTY JGTM SCGC YARS DMFY */ Dialog<ButtonType> preview =
+                            Dialog<ButtonType> preview =
                                 dialog(
                                     "Vista previa · " + i.code() + " · Versión " + v.number(),
                                     800,
@@ -673,7 +877,7 @@ import javafx.util.Duration;
                                                 "Comprueba el contenido. Solo la confirmación lo"
                                                     + " envía al supervisor."),
                                             readArea(v.content(), 20))));
-                            /* LFTY JGTM SCGC YARS DMFY */ ButtonType confirm =
+                            ButtonType confirm =
                                 new ButtonType(
                                     "Confirmar envío a supervisión", ButtonBar.ButtonData.OK_DONE);
                             preview
@@ -683,10 +887,7 @@ import javafx.util.Duration;
                                     confirm,
                                     new ButtonType(
                                         "Volver y corregir", ButtonBar.ButtonData.CANCEL_CLOSE));
-                            /* LFTY JGTM SCGC YARS DMFY */ if (preview
-                                    .showAndWait()
-                                    .orElse(ButtonType.CANCEL)
-                                == confirm) {
+                            if (preview.showAndWait().orElse(ButtonType.CANCEL) == confirm) {
                               context.incidents.submit(token, id, v.id());
                               autosave = () -> {};
                               dialog.close();
@@ -695,22 +896,21 @@ import javafx.util.Duration;
                             }
                           })));
     }
-    /* LFTY JGTM SCGC YARS DMFY */ if (user.role().managesIncidents()
-        && i.status() == Status.EN_REVISION) {
+    if (user.role().managesIncidents() && i.status() == Status.EN_REVISION) {
       actions
           .getChildren()
           .addAll(
               button(
                   "Solicitar corrección",
                   () -> {
-                    /* LFTY JGTM SCGC YARS DMFY */ TextInputDialog reason = new TextInputDialog();
+                    TextInputDialog reason = new TextInputDialog();
                     reason.initOwner(stage);
                     reason.setTitle("Devolver reporte");
                     reason.setHeaderText("Indica qué debe corregir el técnico");
                     reason
                         .showAndWait()
                         .ifPresent(
-                            /* LFTY JGTM SCGC YARS DMFY */ text ->
+                            text ->
                                 safe(
                                     () -> {
                                       context.incidents.returnReport(token, id, text);
@@ -722,12 +922,12 @@ import javafx.util.Duration;
               primary(
                   "Aprobar y generar PDF",
                   () -> {
-                    /* LFTY JGTM SCGC YARS DMFY */ if (confirm(
+                    if (confirm(
                         "Aprobar reporte",
                         "Se aprobará la versión enviada y se completará la incidencia."))
                       async(
                           () -> context.incidents.approve(token, id),
-                          /* LFTY JGTM SCGC YARS DMFY */ path -> {
+                          path -> {
                             dialog.close();
                             navigate(currentPage);
                             notice(
@@ -736,7 +936,7 @@ import javafx.util.Duration;
                           });
                   }));
     }
-    /* LFTY JGTM SCGC YARS DMFY */ if (i.status() == Status.COMPLETADO)
+    if (i.status() == Status.COMPLETADO)
       actions
           .getChildren()
           .addAll(
@@ -746,23 +946,22 @@ import javafx.util.Duration;
               button(
                   "Abrir DOCX",
                   () -> async(() -> context.incidents.export(token, id, true), this::openFile)));
-    /* LFTY JGTM SCGC YARS DMFY */ FlowPane flow = new FlowPane(12, 12);
+    FlowPane flow = new FlowPane(12, 12);
     flow.getChildren().addAll(new ArrayList<>(actions.getChildren()));
     content.getChildren().add(flow);
-    /* LFTY JGTM SCGC YARS DMFY */ if (i.startedAt() != null)
+    if (i.startedAt() != null)
       content.getChildren().add(button("Consultar versiones", () -> versions(id)));
     content.getChildren().add(label("Historial de la incidencia", "section-title"));
-    /* LFTY JGTM SCGC YARS DMFY */ for (
-    /* LFTY JGTM SCGC YARS DMFY */ Event event : context.incidents.events(token, id))
+    for (Event event : context.incidents.events(token, id))
       content.getChildren().add(eventNode(event));
     dialog.getDialogPane().setContent(scroll(content));
     dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
     dialog.setOnCloseRequest(
-        /* LFTY JGTM SCGC YARS DMFY */ e -> {
+        e -> {
           try {
             save.run();
             autosave = () -> {};
-          } catch (/* LFTY JGTM SCGC YARS DMFY */ Exception failure) {
+          } catch (Exception failure) {
             e.consume();
             error(failure);
           }
@@ -772,19 +971,16 @@ import javafx.util.Duration;
     autosave = () -> {};
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void versions(/* LFTY JGTM SCGC YARS DMFY */ long id) {
-    /* LFTY JGTM SCGC YARS DMFY */ Dialog<ButtonType> dialog =
-        dialog("Versiones del reporte", 850, 650);
-    /* LFTY JGTM SCGC YARS DMFY */ ListView<Version> list =
+  private void versions(long id) {
+    Dialog<ButtonType> dialog = dialog("Versiones del reporte", 850, 650);
+    ListView<Version> list =
         new ListView<>(FXCollections.observableArrayList(context.incidents.versions(token, id)));
     list.setPrefHeight(180);
     list.setCellFactory(
-        /* LFTY JGTM SCGC YARS DMFY */ v ->
-            new ListCell<>() /* LFTY JGTM SCGC YARS DMFY */ {
-              /* LFTY JGTM SCGC YARS DMFY */ @Override
-              protected void updateItem(
-                  /* LFTY JGTM SCGC YARS DMFY */ Version item, /* LFTY JGTM SCGC YARS DMFY */
-                  boolean empty) {
+        v ->
+            new ListCell<>() {
+              @Override
+              protected void updateItem(Version item, boolean empty) {
                 super.updateItem(item, empty);
                 setText(
                     empty || item == null
@@ -799,46 +995,32 @@ import javafx.util.Duration;
                             + dates.format(item.createdAt()));
               }
             });
-    /* LFTY JGTM SCGC YARS DMFY */ TextArea text =
-        readArea("Selecciona una versión para consultar su contenido.", 14);
+    TextArea text = readArea("Selecciona una versión para consultar su contenido.", 14);
     list.getSelectionModel()
         .selectedItemProperty()
         .addListener(
-            (/* LFTY JGTM SCGC YARS DMFY */ o, /* LFTY JGTM SCGC YARS DMFY */
-                a, /* LFTY JGTM SCGC YARS DMFY */
-                b) -> {
-              /* LFTY JGTM SCGC YARS DMFY */ if (b != null) text.setText(b.content());
+            (o, a, b) -> {
+              if (b != null) text.setText(b.content());
             });
     dialog.getDialogPane().setContent(new VBox(14, list, text));
     dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
     dialog.showAndWait();
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void users() {
-    /* LFTY JGTM SCGC YARS DMFY */ VBox page =
+  // Administración y configuración
+  private void users() {
+    VBox page =
         page(
             "Usuarios de la instalación",
             "Crea cuentas, asigna perfiles y desactiva accesos conservando el historial.");
-    /* LFTY JGTM SCGC YARS DMFY */ TableView<User> table =
+    TableView<User> table =
         new TableView<>(FXCollections.observableArrayList(context.identity.users(token)));
     table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
     table.setPrefHeight(420);
     table.getColumns().add(column("Usuario", User::username, 220));
-    table
-        .getColumns()
-        .add(column("Perfil", /* LFTY JGTM SCGC YARS DMFY */ u -> u.role().toString(), 240));
-    table
-        .getColumns()
-        .add(
-            column(
-                "Especialidad", /* LFTY JGTM SCGC YARS DMFY */ u -> u.specialty().toString(), 200));
-    table
-        .getColumns()
-        .add(
-            column(
-                "Acceso", /* LFTY JGTM SCGC YARS DMFY */
-                u -> u.active() ? "Activo" : "Desactivado",
-                140));
+    table.getColumns().add(column("Perfil", u -> u.role().toString(), 240));
+    table.getColumns().add(column("Especialidad", u -> u.specialty().toString(), 200));
+    table.getColumns().add(column("Acceso", u -> u.active() ? "Activo" : "Desactivado", 140));
     page.getChildren()
         .addAll(
             new HBox(
@@ -847,9 +1029,8 @@ import javafx.util.Duration;
                 button(
                     "Editar seleccionado",
                     () -> {
-                      /* LFTY JGTM SCGC YARS DMFY */ User selected =
-                          table.getSelectionModel().getSelectedItem();
-                      /* LFTY JGTM SCGC YARS DMFY */ if (selected != null) userForm(selected);
+                      User selected = table.getSelectionModel().getSelectedItem();
+                      if (selected != null) userForm(selected);
                     })),
             table,
             muted(
@@ -858,52 +1039,49 @@ import javafx.util.Duration;
     show(page);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void userForm(/* LFTY JGTM SCGC YARS DMFY */ User target) {
-    /* LFTY JGTM SCGC YARS DMFY */ Dialog<ButtonType> dialog =
+  private void userForm(User target) {
+    Dialog<ButtonType> dialog =
         dialog(target == null ? "Crear usuario" : "Editar usuario", 600, 620);
-    /* LFTY JGTM SCGC YARS DMFY */ TextField name = field("Nombre de usuario");
-    /* LFTY JGTM SCGC YARS DMFY */ if (target != null) {
+    TextField name = field("Nombre de usuario");
+    if (target != null) {
       name.setText(target.username());
       name.setEditable(false);
     }
-    /* LFTY JGTM SCGC YARS DMFY */ ComboBox<Role> role =
-        combo(Role.values(), target == null ? Role.TECHNICIAN : target.role());
-    /* LFTY JGTM SCGC YARS DMFY */ ComboBox<Specialty> specialty =
+    ComboBox<Role> role = combo(Role.values(), target == null ? Role.TECHNICIAN : target.role());
+    ComboBox<Specialty> specialty =
         combo(Specialty.values(), target == null ? Specialty.GENERAL : target.specialty());
-    /* LFTY JGTM SCGC YARS DMFY */ CheckBox active = new CheckBox("Cuenta activa");
+    CheckBox active = new CheckBox("Cuenta activa");
     active.setSelected(target == null || target.active());
-    /* LFTY JGTM SCGC YARS DMFY */ PasswordField password = new PasswordField();
+    PasswordField password = new PasswordField();
     password.setPromptText("Mínimo 10 caracteres");
-    /* LFTY JGTM SCGC YARS DMFY */ VBox form =
+    VBox form =
         new VBox(
             14,
             labeled("Usuario", name),
             labeled("Perfil", role),
             labeled("Especialidad", specialty),
             active);
-    /* LFTY JGTM SCGC YARS DMFY */ if (target == null)
-      form.getChildren().add(labeled("Contraseña inicial", password));
+    if (target == null) form.getChildren().add(labeled("Contraseña inicial", password));
     else form.getChildren().add(button("Restablecer contraseña…", () -> resetPassword(target)));
     dialog.getDialogPane().setContent(form);
-    /* LFTY JGTM SCGC YARS DMFY */ ButtonType save =
-        new ButtonType("Guardar", ButtonBar.ButtonData.OK_DONE);
+    ButtonType save = new ButtonType("Guardar", ButtonBar.ButtonData.OK_DONE);
     dialog.getDialogPane().getButtonTypes().addAll(save, ButtonType.CANCEL);
     dialog
         .getDialogPane()
         .lookupButton(save)
         .addEventFilter(
             javafx.event.ActionEvent.ACTION,
-            /* LFTY JGTM SCGC YARS DMFY */ e -> {
+            e -> {
               e.consume();
-              /* LFTY JGTM SCGC YARS DMFY */ char[] secret = password.getText().toCharArray();
-              /* LFTY JGTM SCGC YARS DMFY */ String username = name.getText();
-              /* LFTY JGTM SCGC YARS DMFY */ Role selectedRole = role.getValue();
-              /* LFTY JGTM SCGC YARS DMFY */ Specialty selectedSpecialty = specialty.getValue();
-              /* LFTY JGTM SCGC YARS DMFY */ boolean enabled = active.isSelected();
+              char[] secret = password.getText().toCharArray();
+              String username = name.getText();
+              Role selectedRole = role.getValue();
+              Specialty selectedSpecialty = specialty.getValue();
+              boolean enabled = active.isSelected();
               async(
                   () -> {
                     try {
-                      /* LFTY JGTM SCGC YARS DMFY */ if (target == null)
+                      if (target == null)
                         context.identity.createUser(
                             token, username, secret, selectedRole, selectedSpecialty);
                       else
@@ -914,7 +1092,7 @@ import javafx.util.Duration;
                       Arrays.fill(secret, '\0');
                     }
                   },
-                  /* LFTY JGTM SCGC YARS DMFY */ ok -> {
+                  ok -> {
                     password.clear();
                     dialog.close();
                     navigate("Usuarios");
@@ -923,24 +1101,21 @@ import javafx.util.Duration;
     dialog.showAndWait();
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void resetPassword(
-      /* LFTY JGTM SCGC YARS DMFY */ User target) {
-    /* LFTY JGTM SCGC YARS DMFY */ Dialog<ButtonType> dialog =
-        dialog("Restablecer contraseña · " + target.username(), 480, 300);
-    /* LFTY JGTM SCGC YARS DMFY */ PasswordField field = new PasswordField();
+  private void resetPassword(User target) {
+    Dialog<ButtonType> dialog = dialog("Restablecer contraseña · " + target.username(), 480, 300);
+    PasswordField field = new PasswordField();
     field.setPromptText("Nueva contraseña, mínimo 10 caracteres");
     dialog.getDialogPane().setContent(field);
-    /* LFTY JGTM SCGC YARS DMFY */ ButtonType save =
-        new ButtonType("Restablecer", ButtonBar.ButtonData.OK_DONE);
+    ButtonType save = new ButtonType("Restablecer", ButtonBar.ButtonData.OK_DONE);
     dialog.getDialogPane().getButtonTypes().addAll(save, ButtonType.CANCEL);
     dialog
         .getDialogPane()
         .lookupButton(save)
         .addEventFilter(
             javafx.event.ActionEvent.ACTION,
-            /* LFTY JGTM SCGC YARS DMFY */ e -> {
+            e -> {
               e.consume();
-              /* LFTY JGTM SCGC YARS DMFY */ char[] secret = field.getText().toCharArray();
+              char[] secret = field.getText().toCharArray();
               field.clear();
               async(
                   () -> {
@@ -951,9 +1126,9 @@ import javafx.util.Duration;
                       Arrays.fill(secret, '\0');
                     }
                   },
-                  /* LFTY JGTM SCGC YARS DMFY */ ok -> {
+                  ok -> {
                     dialog.close();
-                    /* LFTY JGTM SCGC YARS DMFY */ if (target.id() == user.id()) logout(false);
+                    if (target.id() == user.id()) logout(false);
                     else
                       notice(
                           "Contraseña restablecida", "Las sesiones de esa cuenta fueron cerradas.");
@@ -962,14 +1137,13 @@ import javafx.util.Duration;
     dialog.showAndWait();
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void settings() {
-    /* LFTY JGTM SCGC YARS DMFY */ VBox page =
+  private void settings() {
+    VBox page =
         page(
             "Configuración",
             "Administra la sesión y conserva copias de la información de esta instalación.");
-    /* LFTY JGTM SCGC YARS DMFY */ Spinner<Integer> minutes =
-        new Spinner<>(5, 30, context.identity.inactivityMinutes(token));
-    /* LFTY JGTM SCGC YARS DMFY */ VBox session =
+    Spinner<Integer> minutes = new Spinner<>(5, 30, context.identity.inactivityMinutes(token));
+    VBox session =
         new VBox(
             14,
             label("Bloqueo por inactividad", "section-title"),
@@ -985,7 +1159,7 @@ import javafx.util.Duration;
                           feedback.setText("Intervalo actualizado.");
                         })));
     session.getStyleClass().add("card");
-    /* LFTY JGTM SCGC YARS DMFY */ VBox backup =
+    VBox backup =
         new VBox(
             14,
             label("Respaldos y restauración", "section-title"),
@@ -997,22 +1171,20 @@ import javafx.util.Duration;
                 primary(
                     "Crear respaldo…",
                     () -> {
-                      /* LFTY JGTM SCGC YARS DMFY */ FileChooser chooser =
-                          zipChooser("Guardar respaldo");
+                      FileChooser chooser = zipChooser("Guardar respaldo");
                       chooser.setInitialFileName(
                           "Voxora-"
                               + java.time.LocalDateTime.now()
                                   .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
                               + ".zip");
-                      /* LFTY JGTM SCGC YARS DMFY */ java.io.File file =
-                          chooser.showSaveDialog(stage);
-                      /* LFTY JGTM SCGC YARS DMFY */ if (file != null)
+                      java.io.File file = chooser.showSaveDialog(stage);
+                      if (file != null)
                         async(
                             () -> {
                               context.backups.backup(token, file.toPath());
                               return true;
                             },
-                            /* LFTY JGTM SCGC YARS DMFY */ ok ->
+                            ok ->
                                 notice(
                                     "Respaldo creado",
                                     "La copia quedó guardada en la ubicación elegida."));
@@ -1020,9 +1192,8 @@ import javafx.util.Duration;
                 button(
                     "Restaurar respaldo…",
                     () -> {
-                      /* LFTY JGTM SCGC YARS DMFY */ java.io.File file =
-                          zipChooser("Seleccionar respaldo").showOpenDialog(stage);
-                      /* LFTY JGTM SCGC YARS DMFY */ if (file != null
+                      java.io.File file = zipChooser("Seleccionar respaldo").showOpenDialog(stage);
+                      if (file != null
                           && confirm(
                               "Restaurar instalación",
                               "Se reemplazarán los datos y documentos actuales por los del"
@@ -1033,7 +1204,7 @@ import javafx.util.Duration;
                               context.incidents.reconcile();
                               return true;
                             },
-                            /* LFTY JGTM SCGC YARS DMFY */ ok -> {
+                            ok -> {
                               logout(false);
                               notice(
                                   "Restauración completada",
@@ -1041,13 +1212,13 @@ import javafx.util.Duration;
                             });
                     })));
     backup.getStyleClass().add("card");
-    /* LFTY JGTM SCGC YARS DMFY */ Label aiState =
+    Label aiState =
         muted(
             context.voice.runtime().available()
                 ? "Componentes locales encontrados: Whisper Tiny y Qwen3 4B."
                 : "Componentes no preparados. Ejecuta scripts/prepare-ai.ps1 o selecciona una"
                     + " carpeta preparada.");
-    /* LFTY JGTM SCGC YARS DMFY */ VBox ai =
+    VBox ai =
         new VBox(
             14,
             label("Voz e inteligencia local", "section-title"),
@@ -1056,16 +1227,16 @@ import javafx.util.Duration;
             button(
                 "Seleccionar carpeta de motores y modelos…",
                 () -> {
-                  /* LFTY JGTM SCGC YARS DMFY */ DirectoryChooser chooser = new DirectoryChooser();
+                  DirectoryChooser chooser = new DirectoryChooser();
                   chooser.setTitle("Componentes locales de Voxora");
-                  /* LFTY JGTM SCGC YARS DMFY */ var directory = chooser.showDialog(stage);
-                  /* LFTY JGTM SCGC YARS DMFY */ if (directory != null)
+                  var directory = chooser.showDialog(stage);
+                  if (directory != null)
                     async(
                         () -> {
                           context.voice.configure(token, directory.toPath());
                           return true;
                         },
-                        /* LFTY JGTM SCGC YARS DMFY */ ok -> navigate("Configuración"));
+                        ok -> navigate("Configuración"));
                 }));
     ai.getStyleClass().add("card");
     page.getChildren()
@@ -1077,20 +1248,17 @@ import javafx.util.Duration;
     show(page);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void audit() {
-    /* LFTY JGTM SCGC YARS DMFY */ VBox page =
-        page("Auditoría", "Acciones registradas con responsable y fecha.");
-    /* LFTY JGTM SCGC YARS DMFY */ for (
-    /* LFTY JGTM SCGC YARS DMFY */ Event event : context.incidents.events(token, null))
+  private void audit() {
+    VBox page = page("Auditoría", "Acciones registradas con responsable y fecha.");
+    for (Event event : context.incidents.events(token, null))
       page.getChildren().add(eventNode(event));
     show(page);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private Node eventNode(
-      /* LFTY JGTM SCGC YARS DMFY */ Event event) {
-    /* LFTY JGTM SCGC YARS DMFY */ Label detail = muted(event.detail());
+  private Node eventNode(Event event) {
+    Label detail = muted(event.detail());
     detail.setWrapText(true);
-    /* LFTY JGTM SCGC YARS DMFY */ VBox row =
+    VBox row =
         new VBox(
             6,
             label(event.action().replace('_', ' ') + " · " + event.actor(), "event-title"),
@@ -1100,89 +1268,76 @@ import javafx.util.Duration;
     return row;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void logout(
-      /* LFTY JGTM SCGC YARS DMFY */ boolean expired) {
-    /* LFTY JGTM SCGC YARS DMFY */ if (token == null) return;
-    /* LFTY JGTM SCGC YARS DMFY */ String previous = token;
+  private void logout(boolean expired) {
+    if (token == null) return;
+    String previous = token;
     try {
       autosave.run();
-    } catch (/* LFTY JGTM SCGC YARS DMFY */ Exception e) {
+    } catch (Exception e) {
       feedback.setText("No se pudo guardar el último cambio: " + e.getMessage());
     }
     autosave = () -> {};
     token = null;
     user = null;
-    /* LFTY JGTM SCGC YARS DMFY */ for (
-    /* LFTY JGTM SCGC YARS DMFY */ Window window :
-        List.copyOf(Window.getWindows())) /* LFTY JGTM SCGC YARS DMFY */
-      if (window != stage) window.hide();
+    for (Window window : List.copyOf(Window.getWindows())) if (window != stage) window.hide();
     context.identity.logout(previous, expired);
     idleWarning.setText("");
     login();
-    /* LFTY JGTM SCGC YARS DMFY */ if (expired)
+    if (expired)
       notice(
           "Sesión bloqueada",
           "Inicia sesión para continuar. Los borradores guardados permanecen disponibles.");
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private <T> void async(
-      /* LFTY JGTM SCGC YARS DMFY */ Callable<T> action, /* LFTY JGTM SCGC YARS DMFY */
-      Consumer<T> success) {
+  private <T> void async(Callable<T> action, Consumer<T> success) {
     async(action, success, this::error);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private <T> void async(
-      /* LFTY JGTM SCGC YARS DMFY */ Callable<T> action, /* LFTY JGTM SCGC YARS DMFY */
-      Consumer<T> success, /* LFTY JGTM SCGC YARS DMFY */
-      Consumer<Throwable> failure) {
-    /* LFTY JGTM SCGC YARS DMFY */ if (busy) return;
+  private <T> void async(Callable<T> action, Consumer<T> success, Consumer<Throwable> failure) {
+    if (busy) return;
     busy = true;
-    /* LFTY JGTM SCGC YARS DMFY */ String session = token;
-    /* LFTY JGTM SCGC YARS DMFY */ List<Window> windows = List.copyOf(Window.getWindows());
-    /* LFTY JGTM SCGC YARS DMFY */ for (
-    /* LFTY JGTM SCGC YARS DMFY */ Window w : windows) /* LFTY JGTM SCGC YARS DMFY */
-      if (w.getScene() != null) w.getScene().getRoot().setDisable(true);
+    String session = token;
+    List<Window> windows = List.copyOf(Window.getWindows());
+    for (Window w : windows) if (w.getScene() != null) w.getScene().getRoot().setDisable(true);
     feedback.setText("Procesando…");
-    /* LFTY JGTM SCGC YARS DMFY */ Task<T> task =
-        new Task<>() /* LFTY JGTM SCGC YARS DMFY */ {
-          /* LFTY JGTM SCGC YARS DMFY */ @Override
+    Task<T> task =
+        new Task<>() {
+          @Override
           protected T call() throws Exception {
             return action.call();
           }
         };
-    /* LFTY JGTM SCGC YARS DMFY */ Runnable enable =
+    Runnable enable =
         () -> {
           busy = false;
-          /* LFTY JGTM SCGC YARS DMFY */ for (/* LFTY JGTM SCGC YARS DMFY */ Window w : windows)
-            /* LFTY JGTM SCGC YARS DMFY */ if (w.getScene() != null)
-              w.getScene().getRoot().setDisable(false);
+          for (Window w : windows)
+            if (w.getScene() != null) w.getScene().getRoot().setDisable(false);
           feedback.setText("Listo.");
         };
     task.setOnSucceeded(
-        /* LFTY JGTM SCGC YARS DMFY */ e -> {
+        e -> {
           enable.run();
-          /* LFTY JGTM SCGC YARS DMFY */ if (Objects.equals(session, token))
-            safe(() -> success.accept(task.getValue()));
+          if (Objects.equals(session, token)) safe(() -> success.accept(task.getValue()));
         });
     task.setOnFailed(
-        /* LFTY JGTM SCGC YARS DMFY */ e -> {
+        e -> {
           enable.run();
           failure.accept(task.getException());
         });
     worker.submit(task);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void safe(/* LFTY JGTM SCGC YARS DMFY */ Runnable action) {
+  private void safe(Runnable action) {
     try {
       action.run();
-    } catch (/* LFTY JGTM SCGC YARS DMFY */ Exception e) {
+    } catch (Exception e) {
       error(e);
     }
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void error(/* LFTY JGTM SCGC YARS DMFY */ Throwable e) {
-    /* LFTY JGTM SCGC YARS DMFY */ Alert alert = new Alert(Alert.AlertType.ERROR);
-    /* LFTY JGTM SCGC YARS DMFY */ if (stage != null && stage.isShowing()) alert.initOwner(stage);
+  private void error(Throwable e) {
+    Alert alert = new Alert(Alert.AlertType.ERROR);
+    if (stage != null && stage.isShowing()) alert.initOwner(stage);
     alert.setTitle("Voxora");
     alert.setHeaderText("No se pudo completar la acción");
     alert.setContentText(
@@ -1190,160 +1345,133 @@ import javafx.util.Duration;
     alert.showAndWait();
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void notice(
-      /* LFTY JGTM SCGC YARS DMFY */ String title, /* LFTY JGTM SCGC YARS DMFY */ String message) {
-    /* LFTY JGTM SCGC YARS DMFY */ Alert a =
-        new Alert(Alert.AlertType.INFORMATION, message, ButtonType.OK);
+  private void notice(String title, String message) {
+    Alert a = new Alert(Alert.AlertType.INFORMATION, message, ButtonType.OK);
     a.initOwner(stage);
     a.setTitle("Voxora");
     a.setHeaderText(title);
     a.showAndWait();
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private boolean confirm(
-      /* LFTY JGTM SCGC YARS DMFY */ String title, /* LFTY JGTM SCGC YARS DMFY */ String message) {
-    /* LFTY JGTM SCGC YARS DMFY */ Alert a =
-        new Alert(Alert.AlertType.CONFIRMATION, message, ButtonType.OK, ButtonType.CANCEL);
+  private boolean confirm(String title, String message) {
+    Alert a = new Alert(Alert.AlertType.CONFIRMATION, message, ButtonType.OK, ButtonType.CANCEL);
     a.initOwner(stage);
     a.setTitle("Voxora");
     a.setHeaderText(title);
     return a.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private Dialog<ButtonType> dialog(
-      /* LFTY JGTM SCGC YARS DMFY */ String title, /* LFTY JGTM SCGC YARS DMFY */
-      double width, /* LFTY JGTM SCGC YARS DMFY */
-      double height) {
-    /* LFTY JGTM SCGC YARS DMFY */ Dialog<ButtonType> dialog = new Dialog<>();
+  private Dialog<ButtonType> dialog(String title, double width, double height) {
+    Dialog<ButtonType> dialog = new Dialog<>();
     dialog.initOwner(stage);
     dialog.setTitle(title);
     dialog.setResizable(true);
     dialog.getDialogPane().setPrefSize(width, height);
     dialog.getDialogPane().getStylesheets().add(stage.getScene().getStylesheets().getFirst());
     dialog.setOnShown(
-        /* LFTY JGTM SCGC YARS DMFY */ e -> {
-          /* LFTY JGTM SCGC YARS DMFY */ Scene scene = dialog.getDialogPane().getScene();
-          scene.addEventFilter(
-              KeyEvent.KEY_PRESSED, /* LFTY JGTM SCGC YARS DMFY */ k -> activity());
-          scene.addEventFilter(
-              MouseEvent.MOUSE_PRESSED, /* LFTY JGTM SCGC YARS DMFY */ k -> activity());
-          scene.addEventFilter(ScrollEvent.SCROLL, /* LFTY JGTM SCGC YARS DMFY */ k -> activity());
+        e -> {
+          Scene scene = dialog.getDialogPane().getScene();
+          scene.addEventFilter(KeyEvent.KEY_PRESSED, k -> activity());
+          scene.addEventFilter(MouseEvent.MOUSE_PRESSED, k -> activity());
+          scene.addEventFilter(ScrollEvent.SCROLL, k -> activity());
         });
     return dialog;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private static FileChooser zipChooser(
-      /* LFTY JGTM SCGC YARS DMFY */ String title) {
-    /* LFTY JGTM SCGC YARS DMFY */ FileChooser c = new FileChooser();
+  private static FileChooser zipChooser(String title) {
+    FileChooser c = new FileChooser();
     c.setTitle(title);
     c.getExtensionFilters()
         .add(new FileChooser.ExtensionFilter("Respaldo Voxora (*.zip)", "*.zip"));
     return c;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void openFile(/* LFTY JGTM SCGC YARS DMFY */ Path file) {
+  private void openFile(Path file) {
     getHostServices().showDocument(file.toUri().toString());
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private static Label label(
-      /* LFTY JGTM SCGC YARS DMFY */ String text, /* LFTY JGTM SCGC YARS DMFY */ String style) {
-    /* LFTY JGTM SCGC YARS DMFY */ Label label = new Label(text);
-    label.getStyleClass().add(style);
+  private static Label label(String text, String style) {
+    Label label = new Label(text);
+    label.getStyleClass().addAll(style.split("\\s+"));
     label.setWrapText(true);
     return label;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private static Label muted(
-      /* LFTY JGTM SCGC YARS DMFY */ String text) {
+  private static Label muted(String text) {
     return label(text, "muted");
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private static TextField field(
-      /* LFTY JGTM SCGC YARS DMFY */ String prompt) {
-    /* LFTY JGTM SCGC YARS DMFY */ TextField f = new TextField();
+  private static TextField field(String prompt) {
+    TextField f = new TextField();
     f.setPromptText(prompt);
     return f;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private static TextArea area(
-      /* LFTY JGTM SCGC YARS DMFY */ String prompt, /* LFTY JGTM SCGC YARS DMFY */ int rows) {
-    /* LFTY JGTM SCGC YARS DMFY */ TextArea t = new TextArea();
+  private static TextArea area(String prompt, int rows) {
+    TextArea t = new TextArea();
     t.setPromptText(prompt);
     t.setPrefRowCount(rows);
     t.setWrapText(true);
     return t;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private static TextArea readArea(
-      /* LFTY JGTM SCGC YARS DMFY */ String text, /* LFTY JGTM SCGC YARS DMFY */ int rows) {
-    /* LFTY JGTM SCGC YARS DMFY */ TextArea a = area("", rows);
+  private static TextArea readArea(String text, int rows) {
+    TextArea a = area("", rows);
     a.setText(text);
     a.setEditable(false);
     return a;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private static VBox labeled(
-      /* LFTY JGTM SCGC YARS DMFY */ String title, /* LFTY JGTM SCGC YARS DMFY */ Node input) {
+  private static VBox labeled(String title, Node input) {
     return new VBox(6, label(title, "field-label"), input);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private Button button(
-      /* LFTY JGTM SCGC YARS DMFY */ String text, /* LFTY JGTM SCGC YARS DMFY */ Runnable action) {
-    /* LFTY JGTM SCGC YARS DMFY */ Button b = new Button(text);
-    b.setOnAction(/* LFTY JGTM SCGC YARS DMFY */ e -> safe(action));
+  private Button button(String text, Runnable action) {
+    Button b = new Button(text);
+    b.setOnAction(e -> safe(action));
     return b;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private Button primary(
-      /* LFTY JGTM SCGC YARS DMFY */ String text, /* LFTY JGTM SCGC YARS DMFY */ Runnable action) {
-    /* LFTY JGTM SCGC YARS DMFY */ Button b = button(text, action);
+  private Button primary(String text, Runnable action) {
+    Button b = button(text, action);
     b.getStyleClass().add("primary");
     return b;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private static <T> ComboBox<T> combo(
-      /* LFTY JGTM SCGC YARS DMFY */ T[] values, /* LFTY JGTM SCGC YARS DMFY */ T selected) {
-    /* LFTY JGTM SCGC YARS DMFY */ ComboBox<T> c =
-        new ComboBox<>(FXCollections.observableArrayList(values));
+  private static <T> ComboBox<T> combo(T[] values, T selected) {
+    ComboBox<T> c = new ComboBox<>(FXCollections.observableArrayList(values));
     c.setValue(selected);
     c.setMaxWidth(Double.MAX_VALUE);
     return c;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private static ScrollPane scroll(
-      /* LFTY JGTM SCGC YARS DMFY */ Node content) {
-    /* LFTY JGTM SCGC YARS DMFY */ ScrollPane s = new ScrollPane(content);
+  private static ScrollPane scroll(Node content) {
+    ScrollPane s = new ScrollPane(content);
     s.setFitToWidth(true);
     s.setPadding(new Insets(8));
     return s;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private static Node empty(
-      /* LFTY JGTM SCGC YARS DMFY */ String title, /* LFTY JGTM SCGC YARS DMFY */ String subtitle) {
-    /* LFTY JGTM SCGC YARS DMFY */ VBox box =
-        new VBox(10, label(title, "section-title"), muted(subtitle));
+  private static Node empty(String title, String subtitle) {
+    VBox box = new VBox(10, label(title, "section-title"), muted(subtitle));
     box.getStyleClass().add("card");
     return box;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private static <T> TableColumn<T, String> column(
-      /* LFTY JGTM SCGC YARS DMFY */ String title, /* LFTY JGTM SCGC YARS DMFY */
-      Function<T, String> value, /* LFTY JGTM SCGC YARS DMFY */
-      double width) {
-    /* LFTY JGTM SCGC YARS DMFY */ TableColumn<T, String> c = new TableColumn<>(title);
-    c.setCellValueFactory(
-        /* LFTY JGTM SCGC YARS DMFY */ row ->
-            new ReadOnlyStringWrapper(value.apply(row.getValue())));
+  private static <T> TableColumn<T, String> column(
+      String title, Function<T, String> value, double width) {
+    TableColumn<T, String> c = new TableColumn<>(title);
+    c.setCellValueFactory(row -> new ReadOnlyStringWrapper(value.apply(row.getValue())));
     c.setPrefWidth(width);
     return c;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Override
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  @Override
   public void stop() throws Exception {
-    /* LFTY JGTM SCGC YARS DMFY */ if (timer != null) timer.stop();
+    if (timer != null) timer.stop();
     worker.shutdown();
-    /* LFTY JGTM SCGC YARS DMFY */ if (!worker.awaitTermination(5, TimeUnit.SECONDS))
-      worker.shutdownNow();
-    /* LFTY JGTM SCGC YARS DMFY */ if (context != null) context.close();
+    if (!worker.awaitTermination(5, TimeUnit.SECONDS)) worker.shutdownNow();
+    if (context != null) context.close();
   }
 }

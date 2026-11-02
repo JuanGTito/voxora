@@ -7,30 +7,29 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
-/* LFTY JGTM SCGC YARS DMFY */ public final class WhisperEngine implements SpeechEngine {
-  /* LFTY JGTM SCGC YARS DMFY */ private final AiRuntime runtime;
+/* LFTY · JGTM · SCGC · YARS · DMFY */
+public final class WhisperEngine implements SpeechEngine {
+  private final AiRuntime runtime;
 
-  /* LFTY JGTM SCGC YARS DMFY */ public WhisperEngine(
-      /* LFTY JGTM SCGC YARS DMFY */ AiRuntime runtime) {
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public WhisperEngine(AiRuntime runtime) {
     this.runtime = runtime;
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ @Override
-  public String transcribe(/* LFTY JGTM SCGC YARS DMFY */ Path audio) throws Exception {
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  @Override
+  public String transcribe(Path audio) throws Exception {
     synchronized (runtime) {
       return transcribeLocked(audio);
     }
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private String transcribeLocked(
-      /* LFTY JGTM SCGC YARS DMFY */ Path audio) throws Exception {
+  private String transcribeLocked(Path audio) throws Exception {
     runtime.verify();
     AudioFiles.validate(audio);
-    /* LFTY JGTM SCGC YARS DMFY */ Path prefix =
-        runtime.work().resolve(UUID.randomUUID().toString());
-    /* LFTY JGTM SCGC YARS DMFY */ Path log = Path.of(prefix + ".log"),
-        text = Path.of(prefix + ".txt");
-    /* LFTY JGTM SCGC YARS DMFY */ Process process = null;
+    Path prefix = runtime.work().resolve(UUID.randomUUID().toString());
+    Path log = Path.of(prefix + ".log"), text = Path.of(prefix + ".txt");
+    Process process = null;
     try {
       process =
           AiRuntime.start(
@@ -58,8 +57,7 @@ import java.util.concurrent.TimeUnit;
       require(
           process.exitValue() == 0 && Files.isRegularFile(text),
           "El motor de transcripción falló. Se conserva el audio; revisa los componentes locales.");
-      /* LFTY JGTM SCGC YARS DMFY */ String result =
-          Files.readString(text, StandardCharsets.UTF_8).strip();
+      String result = Files.readString(text, StandardCharsets.UTF_8).strip();
       require(
           !result.isBlank(),
           "No se detectó voz reconocible. Puedes reintentar o escribir el texto.");

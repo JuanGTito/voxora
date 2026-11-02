@@ -221,8 +221,8 @@ def source_guide():
 
     heading(doc, "Equipo pruebas y cambios futuros", True)
     table(doc, ("Integrante", "Referencia"), TEAM, [5.0, 1.35])
-    p(doc, "Por solicitud del equipo, las declaraciones Java, métodos, clases, variables, parámetros, condicionales y bucles contienen el comentario colectivo LFTY JGTM SCGC YARS DMFY. No se asignan contribuciones individuales no especificadas ni se cambian nombres descriptivos.")
-    p(doc, "AnnotateTeam usa el analizador javac y compara el árbol sintáctico antes y después. Se comprobó equivalencia al insertar más de 2.000 referencias. Las dependencias y las migraciones históricas no se anotan.")
+    p(doc, "Las declaraciones explícitas public llevan únicamente las iniciales LFTY, JGTM, SCGC, YARS y DMFY. No hay cabeceras por archivo ni etiquetas de equipo en el código. No se marcan parámetros, variables internas ni instrucciones ni se atribuyen contribuciones individuales.")
+    p(doc, "AnnotateTeam retira las marcas antiguas y anota únicamente las declaraciones public. Usa javac para comparar el árbol sintáctico antes y después. Las dependencias y las migraciones históricas no se anotan.")
     p(doc, "La suite completa pasó 44 casos: 28 de negocio, 11 de voz, cuatro de interfaz y uno con motores reales. El caso real usa audio sintético y una corrección proporcionada por la prueba; no representa medición general de precisión ni prueba de micrófono humano.")
     p(doc, "Para continuar: añadir migraciones en lugar de modificarlas; mantener autorización en servicios; conservar versión exacta al enviar; verificar fallos de archivos y rollback; no permitir a la IA cerrar trabajos; probar permisos y recuperación junto con las funciones nuevas.")
     p(doc, "Pendientes explícitos: VM de 4 GB, captura real, ruido y acentos, instalación externa, anexos, hallazgos como flujo propio, preventivos, asignación automática y recuperación segura del único soporte. No se publican motores descargados, modelos, bases, audios ni configuraciones privadas del IDE.")

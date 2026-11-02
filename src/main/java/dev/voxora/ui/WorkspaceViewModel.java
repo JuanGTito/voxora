@@ -7,49 +7,52 @@ import javafx.beans.property.*;
 import javafx.collections.*;
 
 /** Presentation state; all business rules remain in application services. */
-/* LFTY JGTM SCGC YARS DMFY */ public final class WorkspaceViewModel {
-  /* LFTY JGTM SCGC YARS DMFY */ public final StringProperty query = new SimpleStringProperty("");
-  /* LFTY JGTM SCGC YARS DMFY */ public final ObjectProperty<Status> status =
-      new SimpleObjectProperty<>();
-  /* LFTY JGTM SCGC YARS DMFY */ public final ObservableList<Incident> visible =
-      FXCollections.observableArrayList();
-  /* LFTY JGTM SCGC YARS DMFY */ private final IncidentService service;
-  /* LFTY JGTM SCGC YARS DMFY */ private final String token;
-  /* LFTY JGTM SCGC YARS DMFY */ private List<Incident> all = List.of();
+/* LFTY · JGTM · SCGC · YARS · DMFY */
+public final class WorkspaceViewModel {
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public final StringProperty query = new SimpleStringProperty("");
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public final ObjectProperty<Status> status = new SimpleObjectProperty<>();
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public final ObjectProperty<Priority> priority = new SimpleObjectProperty<>();
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public final StringProperty technician = new SimpleStringProperty();
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public final ObservableList<Incident> visible = FXCollections.observableArrayList();
+  private final IncidentService service;
+  private final String token;
+  private List<Incident> all = List.of();
 
-  /* LFTY JGTM SCGC YARS DMFY */ public WorkspaceViewModel(
-      /* LFTY JGTM SCGC YARS DMFY */ IncidentService service, /* LFTY JGTM SCGC YARS DMFY */
-      String token) {
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public WorkspaceViewModel(IncidentService service, String token) {
     this.service = service;
     this.token = token;
-    query.addListener(
-        (/* LFTY JGTM SCGC YARS DMFY */ o, /* LFTY JGTM SCGC YARS DMFY */
-            a, /* LFTY JGTM SCGC YARS DMFY */
-            b) -> filter());
-    status.addListener(
-        (/* LFTY JGTM SCGC YARS DMFY */ o, /* LFTY JGTM SCGC YARS DMFY */
-            a, /* LFTY JGTM SCGC YARS DMFY */
-            b) -> filter());
+    priority.addListener((o, a, b) -> filter());
+    technician.addListener((o, a, b) -> filter());
+    query.addListener((o, a, b) -> filter());
+    status.addListener((o, a, b) -> filter());
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ public void refresh() {
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public void refresh() {
     all = service.list(token);
     filter();
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ public List<Incident> all() {
+  /* LFTY · JGTM · SCGC · YARS · DMFY */
+  public List<Incident> all() {
     return List.copyOf(all);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void filter() {
-    /* LFTY JGTM SCGC YARS DMFY */ String text = query.get().strip().toLowerCase(Locale.ROOT);
+  private void filter() {
+    String text = query.get().strip().toLowerCase(Locale.ROOT);
     visible.setAll(
         all.stream()
+            .filter(i -> priority.get() == null || i.priority() == priority.get())
+            .filter(i -> technician.get() == null || i.technician().equals(technician.get()))
+            .filter(i -> status.get() == null || i.status() == status.get())
             .filter(
-                /* LFTY JGTM SCGC YARS DMFY */ i ->
-                    status.get() == null || i.status() == status.get())
-            .filter(
-                /* LFTY JGTM SCGC YARS DMFY */ i ->
+                i ->
                     (i.code()
                             + " "
                             + i.title()

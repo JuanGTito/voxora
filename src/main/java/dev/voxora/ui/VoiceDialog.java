@@ -8,94 +8,161 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 import javafx.animation.*;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
-import javafx.geometry.Insets;
+import javafx.geometry.*;
 import javafx.scene.control.*;
 import javafx.scene.input.*;
 import javafx.scene.layout.*;
+import javafx.scene.shape.Circle;
 import javafx.stage.*;
 import javafx.util.Duration;
 
-/** Voice preparation is separate from submission and supervisor approval. */
-/* LFTY JGTM SCGC YARS DMFY */ final class VoiceDialog {
-  /* LFTY JGTM SCGC YARS DMFY */ private final AppContext context;
-  /* LFTY JGTM SCGC YARS DMFY */ private final String token;
-  /* LFTY JGTM SCGC YARS DMFY */ private final long incidentId;
-  /* LFTY JGTM SCGC YARS DMFY */ private final Dialog<ButtonType> dialog = new Dialog<>();
-  /* LFTY JGTM SCGC YARS DMFY */ private final TextArea source = new TextArea(),
-      proposal = new TextArea();
-  /* LFTY JGTM SCGC YARS DMFY */ private final ComboBox<VoiceEntry> entries = new ComboBox<>();
-  /* LFTY JGTM SCGC YARS DMFY */ private final Label status =
-      new Label("Graba de forma explícita, importa un WAV o escribe tu narración.");
-  /* LFTY JGTM SCGC YARS DMFY */ private final FlowPane actions = new FlowPane(10, 10);
-  /* LFTY JGTM SCGC YARS DMFY */ private final ExecutorService worker =
+/** One guided action for capture, automatic preparation, and explicit human review. */
+final class VoiceDialog {
+  private enum Step {
+    /* LFTY · JGTM · SCGC · YARS · DMFY */
+    READY,
+    /* LFTY · JGTM · SCGC · YARS · DMFY */
+    LISTENING,
+    /* LFTY · JGTM · SCGC · YARS · DMFY */
+    TRANSCRIBING,
+    /* LFTY · JGTM · SCGC · YARS · DMFY */
+    ORGANIZING,
+    /* LFTY · JGTM · SCGC · YARS · DMFY */
+    REVIEW,
+    /* LFTY · JGTM · SCGC · YARS · DMFY */
+    ERROR
+  }
+
+  private final VoiceDraftSession session;
+  private final Runnable humanActivity;
+  private final Dialog<ButtonType> dialog = new Dialog<>();
+  private final TextArea source = new TextArea(), proposal = new TextArea();
+  private final ComboBox<VoiceEntry> entries = new ComboBox<>();
+  private final Label status =
+      new Label("Cuéntanos qué ocurrió y qué hiciste. Al detener, prepararemos el texto por ti.");
+  private final Label stageTitle = new Label("¿Qué quieres documentar?"),
+      elapsed = new Label("Micrófono apagado");
+  private final HBox steps = new HBox(12);
+  private final Button speak = new Button("Hablar"),
+      prepare = new Button("Preparar texto"),
+      apply = new Button(),
+      importAudio = new Button("Importar un audio");
+  private final Circle pulse = new Circle(28);
+  private final ProgressIndicator progress = new ProgressIndicator();
+  private final VBox review = new VBox(10);
+  private final TitledPane correction = new TitledPane(), history = new TitledPane();
+  private final ExecutorService worker =
       Executors.newSingleThreadExecutor(
-          /* LFTY JGTM SCGC YARS DMFY */ r -> {
-            /* LFTY JGTM SCGC YARS DMFY */ Thread t = new Thread(r, "voxora-voice");
+          r -> {
+            Thread t = new Thread(r, "voxora-guided-voice");
             t.setDaemon(true);
             return t;
           });
-  /* LFTY JGTM SCGC YARS DMFY */ private final Consumer<Version> onApply;
-  /* LFTY JGTM SCGC YARS DMFY */ private final PauseTransition debounce =
-      new PauseTransition(Duration.seconds(1));
-  /* LFTY JGTM SCGC YARS DMFY */ private final Timeline recordingTimer;
-  /* LFTY JGTM SCGC YARS DMFY */ private AudioFiles.Recording recording;
-  /* LFTY JGTM SCGC YARS DMFY */ private Task<?> task;
-  /* LFTY JGTM SCGC YARS DMFY */ private boolean loading, busy;
-  /* LFTY JGTM SCGC YARS DMFY */ private final Button record = new Button("Grabar micrófono"),
-      stop = new Button("Detener y guardar"),
-      transcribe = new Button("Transcribir audio"),
-      extract = new Button("Organizar con IA"),
-      apply = new Button("Usar como borrador"),
-      importAudio = new Button("Importar WAV");
+  private final PauseTransition debounce = new PauseTransition(Duration.seconds(1));
+  private final Timeline timer;
+  private final ScaleTransition listeningAnimation =
+      new ScaleTransition(Duration.millis(650), pulse);
+  private AudioFiles.Recording recording;
+  private Task<?> task;
+  private Step step = Step.READY;
+  private boolean loading, busy, closed;
+  private boolean recordAfterOpening;
+  private long recordingStarted;
 
-  /* LFTY JGTM SCGC YARS DMFY */ VoiceDialog(
-      /* LFTY JGTM SCGC YARS DMFY */ AppContext context, /* LFTY JGTM SCGC YARS DMFY */
-      String token, /* LFTY JGTM SCGC YARS DMFY */
-      long incidentId, /* LFTY JGTM SCGC YARS DMFY */
-      Window owner, /* LFTY JGTM SCGC YARS DMFY */
-      Consumer<Version> onApply) {
-    this.context = context;
-    this.token = token;
-    this.incidentId = incidentId;
-    this.onApply = onApply;
+  VoiceDialog(
+      AppContext context, String token, long incidentId, Window owner, Consumer<Version> onApply) {
+    this(
+        VoiceDraftSession.report(context, token, incidentId, onApply),
+        owner,
+        () -> context.identity.activity(token));
+  }
+
+  static VoiceDialog forIncident(
+      AppContext context, String token, Window owner, boolean replaces, Consumer<String> accepted) {
+    return new VoiceDialog(
+        VoiceDraftSession.incident(context, token, replaces, accepted),
+        owner,
+        () -> context.identity.activity(token));
+  }
+
+  VoiceDialog(VoiceDraftSession session, Window owner, Runnable activity) {
+    this.session = session;
+    humanActivity = activity;
+    apply.setText(session.acceptLabel());
     dialog.initOwner(owner);
-    dialog.setTitle("Voz y narración · " + context.incidents.read(token, incidentId).code());
+    dialog.setTitle("Hablar y preparar el texto");
     dialog.setResizable(true);
-    dialog.getDialogPane().setPrefSize(1000, 800);
+    dialog.getDialogPane().setPrefSize(860, 760);
     dialog.getDialogPane().getStylesheets().addAll(owner.getScene().getStylesheets());
-    entries.setItems(FXCollections.observableArrayList(context.voice.entries(token, incidentId)));
-    entries.setMaxWidth(Double.MAX_VALUE);
-    entries.setCellFactory(/* LFTY JGTM SCGC YARS DMFY */ v -> cell());
-    entries.setButtonCell(cell());
-    entries.setPromptText("Capturas y narraciones guardadas");
-    source.setWrapText(true);
-    source.setPromptText(
-        "Corrige la transcripción o escribe la narración. El original se conserva.");
-    source.setPrefRowCount(8);
-    proposal.setWrapText(true);
-    proposal.setEditable(false);
-    proposal.setPrefRowCount(9);
+    for (String title : List.of("1  Habla", "2  Preparamos", "3  Revisa")) {
+      Label item = new Label(title);
+      item.getStyleClass().add("voice-step");
+      steps.getChildren().add(item);
+    }
+    stageTitle.getStyleClass().add("section-title");
     status.setWrapText(true);
-    actions.getChildren().addAll(record, stop, importAudio, transcribe, extract, apply);
+    status.setId("voice-status");
+    pulse.getStyleClass().add("listening-orb");
+    pulse.setAccessibleText("Indicador visual de grabación");
+    listeningAnimation.setFromX(1);
+    listeningAnimation.setFromY(1);
+    listeningAnimation.setToX(1.28);
+    listeningAnimation.setToY(1.28);
+    listeningAnimation.setAutoReverse(true);
+    listeningAnimation.setCycleCount(Animation.INDEFINITE);
+    progress.setPrefSize(34, 34);
+    progress.setMaxSize(34, 34);
+    speak.getStyleClass().addAll("primary", "speak-button");
+    speak.setId("voice-speak");
+    speak.setGraphic(microphoneIcon());
+    HBox capture = new HBox(24, new StackPane(pulse), new VBox(8, stageTitle, elapsed));
+    capture.setAlignment(Pos.CENTER_LEFT);
+    HBox actions = new HBox(12, speak, prepare, progress);
+    actions.setAlignment(Pos.CENTER_LEFT);
+    VBox hero = new VBox(18, capture, status, actions);
+    hero.getStyleClass().add("voice-hero");
+    source.setWrapText(true);
+    source.setPromptText("También puedes escribir aquí o corregir lo que entendimos.");
+    source.setPrefRowCount(5);
+    source.setId("voice-source");
+    proposal.setWrapText(true);
+    proposal.setPrefRowCount(9);
+    proposal.setId("voice-result");
+    proposal.setPromptText("Aquí aparecerá tu texto organizado.");
+    Label explanation =
+        new Label(
+            "Corrige lo que necesites. El texto se guardará cuando pulses el botón de abajo.");
+    explanation.setWrapText(true);
+    explanation.getStyleClass().add("muted");
     apply.getStyleClass().add("primary");
-    /* LFTY JGTM SCGC YARS DMFY */ VBox form =
-        new VBox(
-            12,
-            new Label("Capturas guardadas"),
-            entries,
-            actions,
-            status,
-            new Label("Narración revisable"),
-            source,
-            new Label("Propuesta organizada que debes revisar"),
-            proposal,
-            new Label(
-                "La IA clasifica frases originales. No crea tickets, envía reportes ni aprueba"
-                    + " cierres."));
+    apply.setId("voice-apply");
+    review
+        .getChildren()
+        .addAll(new Label("Tu texto, listo para revisar"), proposal, explanation, apply);
+    review.getStyleClass().add("voice-review");
+    Button refresh = new Button("Actualizar resultado");
+    refresh.setOnAction(e -> prepareWritten());
+    VBox sourceBox = new VBox(10, source, refresh, importAudio);
+    correction.setText("Escribir o corregir la narración");
+    correction.setContent(sourceBox);
+    correction.setExpanded(false);
+    history.setText("Recuperar una narración anterior");
+    history.setContent(entries);
+    history.setExpanded(false);
+    entries.setMaxWidth(Double.MAX_VALUE);
+    entries.setCellFactory(v -> cell());
+    entries.setButtonCell(cell());
+    try {
+      entries.setItems(FXCollections.observableArrayList(session.history()));
+    } catch (Exception e) {
+      status.setText(e.getMessage());
+    }
+    VBox form = new VBox(16, steps, hero, review, correction, history);
     form.setPadding(new Insets(8));
-    /* LFTY JGTM SCGC YARS DMFY */ ScrollPane scroll = new ScrollPane(form);
+    ScrollPane scroll = new ScrollPane(form);
     scroll.setFitToWidth(true);
     dialog.getDialogPane().setContent(scroll);
     dialog
@@ -105,291 +172,395 @@ import javafx.util.Duration;
     entries
         .valueProperty()
         .addListener(
-            (/* LFTY JGTM SCGC YARS DMFY */ o, /* LFTY JGTM SCGC YARS DMFY */
-                old, /* LFTY JGTM SCGC YARS DMFY */
-                value) -> {
-              /* LFTY JGTM SCGC YARS DMFY */ if (loading) return;
-              try {
-                /* LFTY JGTM SCGC YARS DMFY */ if (old != null)
-                  context.voice.saveCorrection(token, old.id(), source.getText());
-              } catch (/* LFTY JGTM SCGC YARS DMFY */ Exception e) {
-                status.setText(e.getMessage());
-              }
+            (o, old, value) -> {
+              if (loading) return;
+              if (old != null) correct(old);
               load(value);
             });
     source
         .textProperty()
         .addListener(
-            (/* LFTY JGTM SCGC YARS DMFY */ o, /* LFTY JGTM SCGC YARS DMFY */
-                a, /* LFTY JGTM SCGC YARS DMFY */
-                b) -> {
-              /* LFTY JGTM SCGC YARS DMFY */ if (loading) return;
+            (o, a, b) -> {
+              if (loading) return;
               apply.setDisable(true);
               debounce.playFromStart();
+              if (!proposal.getText().isBlank())
+                status.setText(
+                    "Cambiaste la narración. Pulsa Actualizar resultado para preparar tu"
+                        + " corrección.");
             });
-    debounce.setOnFinished(/* LFTY JGTM SCGC YARS DMFY */ e -> saveSource());
-    record.setOnAction(/* LFTY JGTM SCGC YARS DMFY */ e -> beginRecording());
-    stop.setOnAction(/* LFTY JGTM SCGC YARS DMFY */ e -> stopRecording());
+    proposal.textProperty().addListener((o, a, b) -> updateButtons());
+    debounce.setOnFinished(e -> saveSource());
+    speak.setOnAction(
+        e -> {
+          if (recording == null) beginRecording();
+          else stopRecording(true);
+        });
+    prepare.setOnAction(
+        e -> {
+          VoiceEntry entry = entries.getValue();
+          if (entry != null && source.getText().isBlank() && !entry.audioPath().isBlank())
+            processAudio(entry);
+          else {
+            correction.setExpanded(true);
+            prepareWritten();
+          }
+        });
     importAudio.setOnAction(
-        /* LFTY JGTM SCGC YARS DMFY */ e -> {
-          /* LFTY JGTM SCGC YARS DMFY */ FileChooser chooser = new FileChooser();
-          chooser.setTitle("Importar narración WAV");
+        e -> {
+          FileChooser chooser = new FileChooser();
+          chooser.setTitle("Importar narración");
           chooser
               .getExtensionFilters()
               .add(new FileChooser.ExtensionFilter("Audio WAV (*.wav)", "*.wav"));
-          /* LFTY JGTM SCGC YARS DMFY */ var file = chooser.showOpenDialog(owner);
-          /* LFTY JGTM SCGC YARS DMFY */ if (file != null) {
-            saveSource();
+          var file = chooser.showOpenDialog(dialog.getDialogPane().getScene().getWindow());
+          if (file != null && saveSource())
             run(
-                () -> context.voice.importAudio(token, incidentId, file.toPath()),
-                /* LFTY JGTM SCGC YARS DMFY */ entry -> {
-                  select(entry);
-                  status.setText("Audio importado y conservado. Pulsa Transcribir audio.");
-                });
-          }
+                Step.TRANSCRIBING,
+                () -> {
+                  VoiceEntry entry = session.create(true);
+                  AudioFiles.normalize(file.toPath(), session.audio(entry));
+                  return process(entry);
+                },
+                this::readyToReview);
         });
-    transcribe.setOnAction(
-        /* LFTY JGTM SCGC YARS DMFY */ e -> {
-          /* LFTY JGTM SCGC YARS DMFY */ VoiceEntry entry = entries.getValue();
-          /* LFTY JGTM SCGC YARS DMFY */ if (entry != null)
-            run(
-                () -> context.voice.transcribe(token, entry.id()),
-                /* LFTY JGTM SCGC YARS DMFY */ value -> {
-                  replace(value);
-                  status.setText(
-                      "Transcripción local completada. Revisa el texto antes de organizarlo.");
-                });
-        });
-    extract.setOnAction(
-        /* LFTY JGTM SCGC YARS DMFY */ e -> {
-          /* LFTY JGTM SCGC YARS DMFY */ if (!saveSource()) return;
-          /* LFTY JGTM SCGC YARS DMFY */ VoiceEntry entry = entries.getValue();
-          /* LFTY JGTM SCGC YARS DMFY */ String text = source.getText();
-          run(
-              () -> context.voice.extract(token, entry.id(), text),
-              /* LFTY JGTM SCGC YARS DMFY */ value -> {
-                replace(value);
-                status.setText(
-                    "Propuesta lista. Revisa el contenido antes de usarlo como borrador.");
-              });
-        });
-    apply.setOnAction(
-        /* LFTY JGTM SCGC YARS DMFY */ e -> {
-          try {
-            /* LFTY JGTM SCGC YARS DMFY */ VoiceEntry entry = entries.getValue();
-            /* LFTY JGTM SCGC YARS DMFY */ Incident incident =
-                context.incidents.read(token, incidentId);
-            /* LFTY JGTM SCGC YARS DMFY */ if (!incident.draft().isBlank()) {
-              /* LFTY JGTM SCGC YARS DMFY */ Alert confirm =
-                  new Alert(
-                      Alert.AlertType.CONFIRMATION,
-                      "Se reemplazará el texto vigente del editor. Las versiones anteriores se"
-                          + " conservarán.",
-                      ButtonType.OK,
-                      ButtonType.CANCEL);
-              confirm.initOwner(dialog.getDialogPane().getScene().getWindow());
-              confirm.setHeaderText("Usar la propuesta como borrador");
-              /* LFTY JGTM SCGC YARS DMFY */ if (confirm.showAndWait().orElse(ButtonType.CANCEL)
-                  != ButtonType.OK) return;
-            }
-            /* LFTY JGTM SCGC YARS DMFY */ Version v =
-                context.voice.apply(token, entry.id(), source.getText());
-            onApply.accept(v);
-            dialog.close();
-          } catch (/* LFTY JGTM SCGC YARS DMFY */ Exception failure) {
-            status.setText(failure.getMessage());
-          }
-        });
-    recordingTimer =
+    apply.setOnAction(e -> accept());
+    timer =
         new Timeline(
             new KeyFrame(
                 Duration.seconds(1),
-                /* LFTY JGTM SCGC YARS DMFY */ e -> {
-                  /* LFTY JGTM SCGC YARS DMFY */ if (recording != null && !recording.active())
-                    stopRecording();
+                e -> {
+                  if (recording != null) {
+                    long seconds = (System.nanoTime() - recordingStarted) / 1_000_000_000;
+                    elapsed.setText(
+                        "Escuchando · %02d:%02d / 03:00".formatted(seconds / 60, seconds % 60));
+                    if (!recording.active()) stopRecording(true);
+                  }
                 }));
-    recordingTimer.setCycleCount(Animation.INDEFINITE);
+    timer.setCycleCount(Animation.INDEFINITE);
     dialog.setOnShown(
-        /* LFTY JGTM SCGC YARS DMFY */ e -> {
-          /* LFTY JGTM SCGC YARS DMFY */ var scene = dialog.getDialogPane().getScene();
-          scene.addEventFilter(
-              KeyEvent.KEY_PRESSED, /* LFTY JGTM SCGC YARS DMFY */ k -> activity());
-          scene.addEventFilter(
-              MouseEvent.MOUSE_PRESSED, /* LFTY JGTM SCGC YARS DMFY */ k -> activity());
-          scene.addEventFilter(ScrollEvent.SCROLL, /* LFTY JGTM SCGC YARS DMFY */ k -> activity());
+        e -> {
+          var scene = dialog.getDialogPane().getScene();
+          scene.addEventFilter(KeyEvent.KEY_PRESSED, k -> activity());
+          scene.addEventFilter(MouseEvent.MOUSE_PRESSED, k -> activity());
+          scene.addEventFilter(ScrollEvent.SCROLL, k -> activity());
+          if (recordAfterOpening) {
+            recordAfterOpening = false;
+            Platform.runLater(
+                () -> {
+                  if (dialog.isShowing()) beginRecording();
+                });
+          }
         });
     dialog.setOnHidden(
-        /* LFTY JGTM SCGC YARS DMFY */ e -> {
+        e -> {
+          closed = true;
           debounce.stop();
-          recordingTimer.stop();
+          stopRecording(false);
           saveSource();
-          stopRecording();
-          /* LFTY JGTM SCGC YARS DMFY */ if (task != null) task.cancel(true);
+          if (task != null) task.cancel(true);
           worker.shutdownNow();
+          listeningAnimation.stop();
+          timer.stop();
         });
-    /* LFTY JGTM SCGC YARS DMFY */ if (!entries.getItems().isEmpty())
-      entries.setValue(entries.getItems().getFirst());
+    if (!entries.getItems().isEmpty()) entries.setValue(entries.getItems().getFirst());
+    setStep(Step.READY);
+    if (entries.getValue() != null && !entries.getValue().proposal().isBlank())
+      setStep(Step.REVIEW);
     updateButtons();
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private ListCell<VoiceEntry> cell() {
-    return new ListCell<>() /* LFTY JGTM SCGC YARS DMFY */ {
-      /* LFTY JGTM SCGC YARS DMFY */ @Override
-      protected void updateItem(
-          /* LFTY JGTM SCGC YARS DMFY */ VoiceEntry entry, /* LFTY JGTM SCGC YARS DMFY */
-          boolean empty) {
+  private javafx.scene.Node microphoneIcon() {
+    javafx.scene.shape.SVGPath icon = new javafx.scene.shape.SVGPath();
+    icon.setContent(
+        "M 8 2 A 4 4 0 0 1 16 2 L 16 10 A 4 4 0 0 1 8 10 Z M 5 9 L 5 10 A 7 7 0 0 0 19 10 L 19 9 M"
+            + " 12 17 L 12 22 M 7 22 L 17 22");
+    icon.getStyleClass().add("microphone-icon");
+    return icon;
+  }
+
+  private ListCell<VoiceEntry> cell() {
+    return new ListCell<>() {
+      @Override
+      protected void updateItem(VoiceEntry entry, boolean empty) {
         super.updateItem(entry, empty);
         setText(
             empty || entry == null
                 ? null
-                : "#"
-                    + entry.id()
+                : (entry.audioPath().isBlank() ? "Narración escrita" : "Grabación")
                     + " · "
-                    + (entry.audioPath().isBlank() ? "Narración escrita" : "Audio")
-                    + " · "
-                    + entry.createdAt());
+                    + java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")
+                        .withZone(java.time.ZoneId.systemDefault())
+                        .format(entry.createdAt()));
       }
     };
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ void show() {
+  void show() {
     dialog.showAndWait();
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void activity() {
+  void showAndRecord() {
+    recordAfterOpening = true;
+    show();
+  }
+
+  private void activity() {
     try {
-      context.identity.activity(token);
-    } catch (/* LFTY JGTM SCGC YARS DMFY */ Exception e) {
-      status.setText("La sesión terminó. Vuelve a ingresar para continuar.");
+      humanActivity.run();
+    } catch (Exception e) {
+      status.setText("La sesión terminó. Ingresa nuevamente para continuar.");
     }
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private boolean saveSource() {
-    /* LFTY JGTM SCGC YARS DMFY */ if (loading || busy) return true;
+  private boolean correct(VoiceEntry entry) {
     try {
-      /* LFTY JGTM SCGC YARS DMFY */ VoiceEntry entry = entries.getValue();
-      /* LFTY JGTM SCGC YARS DMFY */ if (entry == null) {
-        /* LFTY JGTM SCGC YARS DMFY */ if (source.getText().isBlank()) {
-          status.setText("Escribe o transcribe una narración.");
-          return false;
-        }
-        /* LFTY JGTM SCGC YARS DMFY */ String text = source.getText();
-        entry = context.voice.create(token, incidentId, false);
+      session.correct(entry, source.getText());
+      return true;
+    } catch (Exception e) {
+      status.setText(e.getMessage());
+      return false;
+    }
+  }
+
+  private boolean saveSource() {
+    if (loading || busy) return true;
+    VoiceEntry entry = entries.getValue();
+    if (entry == null && source.getText().isBlank()) return true;
+    try {
+      if (entry == null) {
+        String text = source.getText();
+        entry = session.create(false);
         loading = true;
         entries.getItems().addFirst(entry);
         entries.setValue(entry);
         loading = false;
         source.setText(text);
       }
-      context.voice.saveCorrection(token, entry.id(), source.getText());
-      return true;
-    } catch (/* LFTY JGTM SCGC YARS DMFY */ Exception e) {
+      return correct(entry);
+    } catch (Exception e) {
       loading = false;
       status.setText(e.getMessage());
       return false;
     }
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void select(
-      /* LFTY JGTM SCGC YARS DMFY */ VoiceEntry entry) {
-    entries.getItems().addFirst(entry);
-    entries.setValue(entry);
-  }
-
-  /* LFTY JGTM SCGC YARS DMFY */ private void replace(
-      /* LFTY JGTM SCGC YARS DMFY */ VoiceEntry entry) {
+  private void replace(VoiceEntry entry) {
     loading = true;
-    entries.getItems().removeIf(/* LFTY JGTM SCGC YARS DMFY */ old -> old.id() == entry.id());
+    entries.getItems().removeIf(old -> old.id() == entry.id());
     entries.getItems().addFirst(entry);
     entries.setValue(entry);
     loading = false;
     load(entry);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void load(
-      /* LFTY JGTM SCGC YARS DMFY */ VoiceEntry entry) {
+  private void load(VoiceEntry entry) {
     loading = true;
     source.setText(entry == null ? "" : entry.correctedText());
     proposal.setText(entry == null ? "" : entry.proposal());
     loading = false;
+    if (!busy && recording == null)
+      setStep(entry != null && !entry.proposal().isBlank() ? Step.REVIEW : Step.READY);
     updateButtons();
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void updateButtons() {
-    /* LFTY JGTM SCGC YARS DMFY */ boolean capturing = recording != null;
-    /* LFTY JGTM SCGC YARS DMFY */ VoiceEntry entry = entries.getValue();
-    record.setDisable(busy || capturing);
-    stop.setDisable(!capturing);
+  private void readyToReview(VoiceEntry entry) {
+    replace(entry);
+    setStep(Step.REVIEW);
+    status.setText(
+        "Listo. Lee el resultado, corrige si hace falta y guarda cuando estés conforme.");
+  }
+
+  private void setStep(Step next) {
+    step = next;
+    for (int i = 0; i < steps.getChildren().size(); i++) {
+      var styles = steps.getChildren().get(i).getStyleClass();
+      styles.remove("voice-step-active");
+      int current =
+          switch (next) {
+            case TRANSCRIBING, ORGANIZING -> 1;
+            case REVIEW -> 2;
+            default -> 0;
+          };
+      if (i == current) styles.add("voice-step-active");
+    }
+    String title =
+        switch (next) {
+          case READY -> "¿Qué quieres documentar?";
+          case LISTENING -> "Te estamos escuchando";
+          case TRANSCRIBING -> "Estamos pasando tu voz a texto";
+          case ORGANIZING -> "Estamos ordenando tu narración";
+          case REVIEW -> "Revisa tu texto";
+          case ERROR -> "Tu trabajo sigue guardado";
+        };
+    stageTitle.setText(title);
+    if (next == Step.REVIEW)
+      status.setText("Listo. Revisa el texto y corrige lo que necesites antes de guardarlo.");
+    if (next == Step.LISTENING) listeningAnimation.playFromStart();
+    else {
+      listeningAnimation.stop();
+      pulse.setScaleX(1);
+      pulse.setScaleY(1);
+    }
+    progress.setVisible(next == Step.TRANSCRIBING || next == Step.ORGANIZING);
+    progress.setManaged(progress.isVisible());
+    if (next != Step.LISTENING)
+      elapsed.setText(
+          next == Step.TRANSCRIBING || next == Step.ORGANIZING
+              ? "Procesamiento local · Puedes cancelar cerrando"
+              : "Micrófono apagado");
+    review.setVisible(next == Step.REVIEW || !proposal.getText().isBlank());
+    review.setManaged(review.isVisible());
+    updateButtons();
+  }
+
+  private void updateButtons() {
+    boolean capturing = recording != null;
+    VoiceEntry entry = entries.getValue();
+    speak.setText(capturing ? "Detener" : step == Step.REVIEW ? "Volver a hablar" : "Hablar");
+    speak.setDisable(busy);
+    prepare.setDisable(busy || capturing);
+    prepare.setText(step == Step.ERROR ? "Reintentar" : "Preparar texto");
+    prepare.setVisible(!capturing && step != Step.REVIEW);
+    prepare.setManaged(prepare.isVisible());
     importAudio.setDisable(busy || capturing);
-    transcribe.setDisable(busy || capturing || entry == null || entry.audioPath().isBlank());
-    extract.setDisable(busy || capturing);
+    source.setEditable(!busy && !capturing);
+    proposal.setEditable(!busy && !capturing);
+    entries.setDisable(busy || capturing);
     apply.setDisable(
         busy
             || capturing
             || entry == null
+            || proposal.getText().isBlank()
             || entry.proposal().isBlank()
             || !entry.sourceHash().equals(AiRuntime.hash(source.getText().strip())));
-    source.setEditable(!busy && !capturing);
-    entries.setDisable(busy || capturing);
+    correction.setDisable(busy || capturing);
+    history.setDisable(busy || capturing);
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void beginRecording() {
-    saveSource();
+  private void beginRecording() {
+    if (!saveSource()) return;
     try {
-      /* LFTY JGTM SCGC YARS DMFY */ VoiceEntry entry =
-          context.voice.create(token, incidentId, true);
-      select(entry);
-      recording = new AudioFiles.Recording(context.voice.audioPath(entry));
-      recordingTimer.play();
-      status.setText("Grabando. Pulsa Detener y guardar al terminar. Límite: 3 minutos.");
-      updateButtons();
-    } catch (/* LFTY JGTM SCGC YARS DMFY */ Exception e) {
-      status.setText(e.getMessage());
-      updateButtons();
+      VoiceEntry entry = session.create(true);
+      replace(entry);
+      recording = new AudioFiles.Recording(session.audio(entry));
+      recordingStarted = System.nanoTime();
+      timer.play();
+      setStep(Step.LISTENING);
+      status.setText(
+          "Habla con naturalidad. Al terminar, pulsa Detener. Nosotros preparamos el texto.");
+    } catch (Exception e) {
+      setStep(Step.ERROR);
+      status.setText(e.getMessage() + " Puedes escribir la narración abajo.");
+      correction.setExpanded(true);
     }
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private void stopRecording() {
-    /* LFTY JGTM SCGC YARS DMFY */ if (recording == null) return;
+  private void stopRecording(boolean process) {
+    if (recording == null) return;
+    boolean saved = false;
     try {
       recording.close();
-      status.setText("Grabación conservada. Puedes transcribirla.");
-    } catch (/* LFTY JGTM SCGC YARS DMFY */ Exception e) {
+      saved = true;
+    } catch (Exception e) {
       status.setText(e.getMessage());
     } finally {
       recording = null;
-      recordingTimer.stop();
+      timer.stop();
+      listeningAnimation.stop();
       updateButtons();
+    }
+    if (saved && process && !closed) processAudio(entries.getValue());
+    else setStep(Step.READY);
+  }
+
+  // Package visibility allows a deterministic pipeline test without recording ambient audio.
+  void processAudio(VoiceEntry entry) {
+    run(Step.TRANSCRIBING, () -> process(entry), this::readyToReview);
+  }
+
+  private VoiceEntry process(VoiceEntry entry) throws Exception {
+    VoiceEntry transcript = session.transcribe(entry);
+    Platform.runLater(
+        () -> {
+          if (!closed) {
+            replace(transcript);
+            setStep(Step.ORGANIZING);
+            status.setText(
+                "Ya tenemos la transcripción. Ahora ordenamos las ideas para que puedas"
+                    + " revisarlas.");
+          }
+        });
+    return session.organize(transcript, transcript.correctedText());
+  }
+
+  private void prepareWritten() {
+    if (source.getText().isBlank()) {
+      correction.setExpanded(true);
+      source.requestFocus();
+      status.setText("Escribe tu narración o pulsa Hablar para comenzar.");
+      return;
+    }
+    if (!saveSource()) return;
+    VoiceEntry entry = entries.getValue();
+    String text = source.getText();
+    run(Step.ORGANIZING, () -> session.organize(entry, text), this::readyToReview);
+  }
+
+  private void accept() {
+    try {
+      VoiceEntry entry = entries.getValue();
+      if (session.replacesContent()) {
+        Alert confirm =
+            new Alert(
+                Alert.AlertType.CONFIRMATION,
+                "Se reemplazará el texto actual del formulario. Las versiones guardadas del reporte"
+                    + " se conservan.",
+                ButtonType.OK,
+                ButtonType.CANCEL);
+        confirm.initOwner(dialog.getDialogPane().getScene().getWindow());
+        confirm.setHeaderText("¿Usar el texto revisado?");
+        if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return;
+      }
+      session.accept(entry, source.getText(), proposal.getText());
+      dialog.close();
+    } catch (Exception e) {
+      status.setText(e.getMessage());
     }
   }
 
-  /* LFTY JGTM SCGC YARS DMFY */ private <T> void run(
-      /* LFTY JGTM SCGC YARS DMFY */ Callable<T> operation, /* LFTY JGTM SCGC YARS DMFY */
-      Consumer<T> success) {
-    /* LFTY JGTM SCGC YARS DMFY */ if (busy) return;
+  private <T> void run(Step next, Callable<T> operation, Consumer<T> success) {
+    if (busy || closed) return;
     busy = true;
     debounce.stop();
-    status.setText("Procesando localmente. Puedes cerrar para cancelar; se conserva lo guardado.");
-    updateButtons();
-    /* LFTY JGTM SCGC YARS DMFY */ Task<T> job =
-        new Task<>() /* LFTY JGTM SCGC YARS DMFY */ {
-          /* LFTY JGTM SCGC YARS DMFY */ @Override
+    setStep(next);
+    status.setText(
+        next == Step.TRANSCRIBING
+            ? "Tu audio está guardado. Estamos preparando el texto…"
+            : "Estamos preparando tu texto…");
+    Task<T> job =
+        new Task<>() {
+          @Override
           protected T call() throws Exception {
             return operation.call();
           }
         };
     task = job;
     job.setOnSucceeded(
-        /* LFTY JGTM SCGC YARS DMFY */ e -> {
+        e -> {
           busy = false;
-          /* LFTY JGTM SCGC YARS DMFY */ if (dialog.isShowing()) success.accept(job.getValue());
+          if (!closed) success.accept(job.getValue());
           updateButtons();
         });
     job.setOnFailed(
-        /* LFTY JGTM SCGC YARS DMFY */ e -> {
+        e -> {
           busy = false;
-          /* LFTY JGTM SCGC YARS DMFY */ if (dialog.isShowing())
-            status.setText(job.getException().getMessage());
+          if (!closed) {
+            setStep(Step.ERROR);
+            status.setText(
+                job.getException().getMessage() + " Puedes reintentar o corregir la narración.");
+            correction.setExpanded(true);
+          }
           updateButtons();
         });
     worker.submit(job);

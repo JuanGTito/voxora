@@ -8,136 +8,80 @@ import java.util.Optional;
 import java.util.function.Function;
 
 /** Application port. Every callback is one isolated transaction. */
-/* LFTY JGTM SCGC YARS DMFY */ public interface Repository {
-  /* LFTY JGTM SCGC YARS DMFY */ <T> T transact(
-      /* LFTY JGTM SCGC YARS DMFY */ Function<Tx, T> work);
+/* LFTY · JGTM · SCGC · YARS · DMFY */
+public interface Repository {
+  <T> T transact(Function<Tx, T> work);
 
-  /* LFTY JGTM SCGC YARS DMFY */ void snapshot(/* LFTY JGTM SCGC YARS DMFY */ Path destination);
+  void snapshot(Path destination);
 
-  /* LFTY JGTM SCGC YARS DMFY */ void restoreDatabase(/* LFTY JGTM SCGC YARS DMFY */ Path source);
+  void restoreDatabase(Path source);
 
-  /* LFTY JGTM SCGC YARS DMFY */ Path root();
+  Path root();
 
-  /* LFTY JGTM SCGC YARS DMFY */ interface Tx {
-    /* LFTY JGTM SCGC YARS DMFY */ List<User> users();
+  interface Tx {
+    List<User> users();
 
-    /* LFTY JGTM SCGC YARS DMFY */ Optional<Account> account(
-        /* LFTY JGTM SCGC YARS DMFY */ String username);
+    Optional<Account> account(String username);
 
-    /* LFTY JGTM SCGC YARS DMFY */ User user(/* LFTY JGTM SCGC YARS DMFY */ long id);
+    User user(long id);
 
-    /* LFTY JGTM SCGC YARS DMFY */ boolean permitted(
-        /* LFTY JGTM SCGC YARS DMFY */ long userId, /* LFTY JGTM SCGC YARS DMFY */
-        String permission);
+    boolean permitted(long userId, String permission);
 
-    /* LFTY JGTM SCGC YARS DMFY */ long addUser(
-        /* LFTY JGTM SCGC YARS DMFY */ String username, /* LFTY JGTM SCGC YARS DMFY */
-        String hash, /* LFTY JGTM SCGC YARS DMFY */
-        Role role, /* LFTY JGTM SCGC YARS DMFY */
-        Specialty specialty);
+    long addUser(String username, String hash, Role role, Specialty specialty);
 
-    /* LFTY JGTM SCGC YARS DMFY */ void updateUser(
-        /* LFTY JGTM SCGC YARS DMFY */ long id, /* LFTY JGTM SCGC YARS DMFY */
-        Role role, /* LFTY JGTM SCGC YARS DMFY */
-        Specialty specialty, /* LFTY JGTM SCGC YARS DMFY */
-        boolean active);
+    void updateUser(long id, Role role, Specialty specialty, boolean active);
 
-    /* LFTY JGTM SCGC YARS DMFY */ void password(
-        /* LFTY JGTM SCGC YARS DMFY */ long id, /* LFTY JGTM SCGC YARS DMFY */ String hash);
+    void password(long id, String hash);
 
-    /* LFTY JGTM SCGC YARS DMFY */ List<Incident> incidents();
+    List<Incident> incidents();
 
-    /* LFTY JGTM SCGC YARS DMFY */ Incident incident(/* LFTY JGTM SCGC YARS DMFY */ long id);
+    Incident incident(long id);
 
-    /* LFTY JGTM SCGC YARS DMFY */ long addIncident(
-        /* LFTY JGTM SCGC YARS DMFY */ String title,
-        /* LFTY JGTM SCGC YARS DMFY */ String equipment,
-        /* LFTY JGTM SCGC YARS DMFY */ String location,
-        /* LFTY JGTM SCGC YARS DMFY */ String description,
-        /* LFTY JGTM SCGC YARS DMFY */ Priority priority,
-        /* LFTY JGTM SCGC YARS DMFY */ Specialty specialty,
-        /* LFTY JGTM SCGC YARS DMFY */ long actor,
-        /* LFTY JGTM SCGC YARS DMFY */ Instant at);
-
-    /* LFTY JGTM SCGC YARS DMFY */ void assign(
-        /* LFTY JGTM SCGC YARS DMFY */ long id, /* LFTY JGTM SCGC YARS DMFY */
-        long technician, /* LFTY JGTM SCGC YARS DMFY */
-        long actor, /* LFTY JGTM SCGC YARS DMFY */
+    long addIncident(
+        String title,
+        String equipment,
+        String location,
+        String description,
+        Priority priority,
+        Specialty specialty,
+        long actor,
         Instant at);
 
-    /* LFTY JGTM SCGC YARS DMFY */ void changeStatus(
-        /* LFTY JGTM SCGC YARS DMFY */ long id, /* LFTY JGTM SCGC YARS DMFY */
-        Status status, /* LFTY JGTM SCGC YARS DMFY */
-        String reason, /* LFTY JGTM SCGC YARS DMFY */
-        long actor, /* LFTY JGTM SCGC YARS DMFY */
-        Instant at);
+    void assign(long id, long technician, long actor, Instant at);
 
-    /* LFTY JGTM SCGC YARS DMFY */ Version addVersion(
-        /* LFTY JGTM SCGC YARS DMFY */ long incidentId, /* LFTY JGTM SCGC YARS DMFY */
-        String content, /* LFTY JGTM SCGC YARS DMFY */
-        long author, /* LFTY JGTM SCGC YARS DMFY */
-        String kind, /* LFTY JGTM SCGC YARS DMFY */
-        Instant at);
+    void changeStatus(long id, Status status, String reason, long actor, Instant at);
 
-    /* LFTY JGTM SCGC YARS DMFY */ void draft(
-        /* LFTY JGTM SCGC YARS DMFY */ long incidentId, /* LFTY JGTM SCGC YARS DMFY */
-        String content, /* LFTY JGTM SCGC YARS DMFY */
-        Instant at);
+    Version addVersion(long incidentId, String content, long author, String kind, Instant at);
 
-    /* LFTY JGTM SCGC YARS DMFY */ void submitted(
-        /* LFTY JGTM SCGC YARS DMFY */ long incidentId, /* LFTY JGTM SCGC YARS DMFY */
-        long versionId);
+    void draft(long incidentId, String content, Instant at);
 
-    /* LFTY JGTM SCGC YARS DMFY */ List<Version> versions(
-        /* LFTY JGTM SCGC YARS DMFY */ long incidentId);
+    void submitted(long incidentId, long versionId);
 
-    /* LFTY JGTM SCGC YARS DMFY */ Version version(/* LFTY JGTM SCGC YARS DMFY */ long id);
+    List<Version> versions(long incidentId);
 
-    /* LFTY JGTM SCGC YARS DMFY */ void review(
-        /* LFTY JGTM SCGC YARS DMFY */ long incidentId, /* LFTY JGTM SCGC YARS DMFY */
-        long versionId, /* LFTY JGTM SCGC YARS DMFY */
-        long actor, /* LFTY JGTM SCGC YARS DMFY */
-        String decision, /* LFTY JGTM SCGC YARS DMFY */
-        String reason, /* LFTY JGTM SCGC YARS DMFY */
-        Instant at);
+    Version version(long id);
 
-    /* LFTY JGTM SCGC YARS DMFY */ void event(
-        /* LFTY JGTM SCGC YARS DMFY */ Long incidentId, /* LFTY JGTM SCGC YARS DMFY */
-        long actor, /* LFTY JGTM SCGC YARS DMFY */
-        String action, /* LFTY JGTM SCGC YARS DMFY */
-        String detail, /* LFTY JGTM SCGC YARS DMFY */
-        Instant at);
+    void review(
+        long incidentId, long versionId, long actor, String decision, String reason, Instant at);
 
-    /* LFTY JGTM SCGC YARS DMFY */ List<Event> events(
-        /* LFTY JGTM SCGC YARS DMFY */ Long incidentId);
+    void event(Long incidentId, long actor, String action, String detail, Instant at);
 
-    /* LFTY JGTM SCGC YARS DMFY */ int inactivityMinutes();
+    List<Event> events(Long incidentId);
 
-    /* LFTY JGTM SCGC YARS DMFY */ void inactivityMinutes(
-        /* LFTY JGTM SCGC YARS DMFY */ int minutes);
+    int inactivityMinutes();
 
-    /* LFTY JGTM SCGC YARS DMFY */ long addVoice(
-        /* LFTY JGTM SCGC YARS DMFY */ long incidentId, /* LFTY JGTM SCGC YARS DMFY */
-        long actor, /* LFTY JGTM SCGC YARS DMFY */
-        String audioPath, /* LFTY JGTM SCGC YARS DMFY */
-        Instant at);
+    void inactivityMinutes(int minutes);
 
-    /* LFTY JGTM SCGC YARS DMFY */ VoiceEntry voice(/* LFTY JGTM SCGC YARS DMFY */ long id);
+    long addVoice(long incidentId, long actor, String audioPath, Instant at);
 
-    /* LFTY JGTM SCGC YARS DMFY */ List<VoiceEntry> voices(
-        /* LFTY JGTM SCGC YARS DMFY */ long incidentId);
+    VoiceEntry voice(long id);
 
-    /* LFTY JGTM SCGC YARS DMFY */ void transcription(
-        /* LFTY JGTM SCGC YARS DMFY */ long id, /* LFTY JGTM SCGC YARS DMFY */ String rawText);
+    List<VoiceEntry> voices(long incidentId);
 
-    /* LFTY JGTM SCGC YARS DMFY */ void extraction(
-        /* LFTY JGTM SCGC YARS DMFY */ long id, /* LFTY JGTM SCGC YARS DMFY */
-        String corrected, /* LFTY JGTM SCGC YARS DMFY */
-        String hash, /* LFTY JGTM SCGC YARS DMFY */
-        String json, /* LFTY JGTM SCGC YARS DMFY */
-        String proposal);
+    void transcription(long id, String rawText);
 
-    /* LFTY JGTM SCGC YARS DMFY */ void voiceVersion(
-        /* LFTY JGTM SCGC YARS DMFY */ long versionId, /* LFTY JGTM SCGC YARS DMFY */ long voiceId);
+    void extraction(long id, String corrected, String hash, String json, String proposal);
+
+    void voiceVersion(long versionId, long voiceId);
   }
 }

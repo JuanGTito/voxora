@@ -4,7 +4,9 @@ Aplicación de escritorio Windows para incidencias técnicas y reportes con voz 
 
 ## Empezar
 
-La aplicación portátil y el MSI incluyen runtime Java. En la primera ejecución crea un superadministrador y después cuentas de supervisor y técnicos. No hay contraseñas predeterminadas. Las cuentas de Voxora comparten los datos dentro del mismo perfil Windows.
+Para instalar con asistente y modelos incluidos, consulta [Instalador Windows](docs/INSTALADOR_WINDOWS.md). Para desarrolladores: `Crear instalador.cmd` genera el EXE completo.
+
+El instalador completo EXE incluye runtime Java, motores y modelos de voz. La aplicación portátil y el MSI también incluyen Java; el MSI antiguo requiere preparar los modelos aparte. En la primera ejecución crea un superadministrador y después cuentas de supervisor y técnicos. No hay contraseñas predeterminadas. Las cuentas de Voxora comparten los datos dentro del mismo perfil Windows.
 
 Desde el código, instala JDK 21 y abre `Iniciar Voxora.cmd`, o utiliza PowerShell:
 
@@ -19,6 +21,8 @@ La preparación descarga aproximadamente 2,6 GB y verifica versiones y SHA-256. 
 En una instalación desde MSI, configura la carpeta preparada de IA en Configuración. La aplicación portátil creada con `-IncludeAi` encuentra sus modelos incluidos automáticamente. El instalador MSI distribuye la aplicación; los modelos se preparan o copian por separado.
 
 ## Flujo
+
+La interfaz local actual ofrece **Hablar → Detener → Revisar** en nueva incidencia y atención del técnico. Al detener, transcribe y organiza automáticamente; el resultado se puede editar antes de confirmar. Consulta [el flujo simplificado](docs/FLUJO_VOZ_SIMPLIFICADO.md) para los cambios respecto a los manuales anteriores.
 
 1. Supervisor crea la incidencia y asigna un técnico de especialidad compatible.
 2. Técnico inicia atención y abre Voz y narración, o escribe el reporte directamente.
@@ -44,6 +48,9 @@ Incluye historial de asignaciones y estados, borradores con versiones, Kanban, a
 # Distribución portátil con runtime, motores y modelos
 ./scripts/package.ps1 -Type app-image -IncludeAi
 
+# Instalador Windows con asistente, runtime, motores y modelos
+./scripts/build-installer.ps1
+
 # MSI con runtime; modelos por separado; necesita WiX 3
 ./scripts/package.ps1 -Type msi
 ```
@@ -52,6 +59,8 @@ La prueba real usa una muestra sintética corta, conserva la transcripción orig
 
 ## Documentación
 
+- [Manual visual de instalación en Word con capturas y flechas](documentacion/Voxora%20Manual%20visual%20de%20instalacion%20APA.docx).
+- [Instalador Windows y construcción del EXE](docs/INSTALADOR_WINDOWS.md).
 - [Guía de ejecución](docs/GUIA_EJECUCION.md).
 - [Validación de voz y límites](docs/VALIDACION_VOZ.md).
 - [Código y arquitectura](docs/CODIGO_FUENTE.md).

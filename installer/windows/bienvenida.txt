@@ -1,0 +1,19 @@
+VOXORA · Gestión técnica con voz local
+
+Este asistente instala la aplicación, Java y los motores y modelos de voz:
+Whisper Tiny y Qwen3 4B. No necesitas instalar Java, Python ni .NET.
+
+Podrás elegir la carpeta de instalación y crear accesos directos.
+Los modelos ocupan aproximadamente 2,6 GB. Reserva al menos 6 GB libres
+para la instalación y espacio adicional para tus documentos y audios.
+
+En el primer inicio crearás tu cuenta de administrador. No existe una
+contraseña predeterminada. Si ya usas Voxora, se conservarán tus cuentas.
+
+Los datos de trabajo se guardan en %LOCALAPPDATA%\Voxora, separados del
+programa. La desinstalación conserva esos datos y tus documentos.
+
+La voz se procesa localmente. El uso de Qwen3 4B en equipos con solo 4 GB
+de RAM todavía requiere validación; instalarlo no garantiza su rendimiento.
+
+Equipo: LFTY · JGTM · SCGC · YARS · DMFY

@@ -45,3 +45,41 @@
 .event { -fx-padding: 12 16; -fx-background-color: #f0f3f9; -fx-background-radius: 6; }
 .event-title { -fx-font-weight: bold; }
 .dialog-pane { -fx-padding: 22; -fx-background-color: #f8faff; }
+.nav-button.nav-active { -fx-background-color: #304364; -fx-border-color: #455b83; -fx-text-fill: white; -fx-font-weight: bold; }
+.topbar { -fx-padding: 20 28; }
+.page { -fx-padding: 32; -fx-spacing: 20; }
+.title { -fx-font-size: 29px; }
+.filter-panel { -fx-background-color: white; -fx-padding: 18; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #e0e5f0; -fx-alignment: bottom-left; }
+.metric-card { -fx-pref-width: 170; -fx-border-width: 3 1 1 1; }
+.text-button { -fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #5351cf; -fx-padding: 4 0; -fx-alignment: center-left; }
+.text-button:hover { -fx-background-color: transparent; -fx-underline: true; }
+.metric-card.state-pendiente { -fx-border-color: #b28b37 #e0e5f0 #e0e5f0 #e0e5f0; }
+.metric-card.state-asignado { -fx-border-color: #5882d4 #e0e5f0 #e0e5f0 #e0e5f0; }
+.metric-card.state-en_proceso { -fx-border-color: #e29a42 #e0e5f0 #e0e5f0 #e0e5f0; }
+.metric-card.state-en_revision { -fx-border-color: #8a67ce #e0e5f0 #e0e5f0 #e0e5f0; }
+.metric-card.state-completado { -fx-border-color: #3b9a80 #e0e5f0 #e0e5f0 #e0e5f0; }
+.badge.state-pendiente { -fx-background-color: #fff3d4; -fx-text-fill: #866117; }
+.badge.state-asignado { -fx-background-color: #e8efff; -fx-text-fill: #315b9b; }
+.badge.state-en_proceso { -fx-background-color: #fff0dd; -fx-text-fill: #995c17; }
+.badge.state-en_revision { -fx-background-color: #eee7fb; -fx-text-fill: #6d449f; }
+.badge.state-completado { -fx-background-color: #ddf3eb; -fx-text-fill: #23745b; }
+.work-card { -fx-padding: 24; -fx-border-width: 1 1 1 4; }
+.work-critica { -fx-border-color: #e0e5f0 #e0e5f0 #e0e5f0 #c54459; }
+.work-alta { -fx-border-color: #e0e5f0 #e0e5f0 #e0e5f0 #d6802c; }
+.work-media { -fx-border-color: #e0e5f0 #e0e5f0 #e0e5f0 #4e76d4; }
+.work-baja { -fx-border-color: #e0e5f0 #e0e5f0 #e0e5f0 #71998c; }
+.priority-critica { -fx-text-fill: #ac3047; -fx-font-weight: bold; }
+.priority-alta { -fx-text-fill: #a65a14; -fx-font-weight: bold; }
+.priority-media { -fx-text-fill: #3968b5; -fx-font-weight: bold; }
+.priority-baja { -fx-text-fill: #3b7c68; -fx-font-weight: bold; }
+.kanban-column { -fx-padding: 16; -fx-background-color: #eaf0f7; }
+.kanban-card { -fx-padding: 16; -fx-border-color: #dbe3ef; -fx-background-radius: 9; -fx-border-radius: 9; }
+.progress-bar > .bar { -fx-background-color: #655bd8; -fx-background-radius: 5; }
+.voice-step { -fx-background-color: #e9edf5; -fx-text-fill: #63728b; -fx-padding: 9 16; -fx-background-radius: 18; }
+.voice-step-active { -fx-background-color: #e7e4ff; -fx-text-fill: #4d43bb; -fx-font-weight: bold; }
+.voice-hero { -fx-background-color: white; -fx-border-color: #dfe5f0; -fx-background-radius: 14; -fx-border-radius: 14; -fx-padding: 26; }
+.listening-orb { -fx-fill: #dcd8ff; -fx-stroke: #aaa1f3; -fx-stroke-width: 2; }
+.speak-button { -fx-font-size: 17px; -fx-padding: 14 28; -fx-graphic-text-gap: 14; }
+.microphone-icon { -fx-fill: transparent; -fx-stroke: white; -fx-stroke-width: 2; }
+.voice-review { -fx-background-color: white; -fx-padding: 18; -fx-background-radius: 10; }
+.titled-pane > .title { -fx-font-size: 13px; -fx-background-color: #edf0f8; -fx-padding: 12; }
